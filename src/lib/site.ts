@@ -7,11 +7,11 @@ export const site = {
 };
 
 /**
- * Fecha provisional para la cuenta regresiva de la landing.
- * Se reemplazará por datos oficiales desde Supabase en la Fase 4
- * (Panel de Fechas Importantes).
+ * Próximo hito clave del proceso de admisión (fecha oficial).
+ * Convocatoria 2027-1 — Dirección Nacional de Admisiones.
+ * Se mantiene en sincronía con src/data/fechas.ts.
  */
 export const nextKeyDate = {
   label: "Prueba de admisión",
-  date: "2026-10-18T07:00:00-05:00",
+  date: "2026-09-20T07:00:00-05:00",
 };

@@ -28,9 +28,29 @@ Toda la información publicada en la plataforma proviene de **páginas oficiales
 
 ## 2. Fechas del proceso (convocatoria vigente)
 
-**Fuente:** [Dirección Nacional de Admisiones — inicio](https://admisiones.unal.edu.co/) y [Guía paso a paso](https://admisiones.unal.edu.co/pregrado/guia-paso-a-paso-pregrado/).
+**Fuente:** [Guía paso a paso — Pregrado](https://admisiones.unal.edu.co/pregrado/guia-paso-a-paso-pregrado/) · verificada el 02/09/2026.
 
-> Se completará en la **Fase 4** con las fechas oficiales de la convocatoria vigente.
+### Convocatoria cargada: 2027-1 (primer periodo académico de 2027)
+
+| Paso | Fecha oficial |
+|------|---------------|
+| Pago de los derechos de inscripción (PIN) | 6 jul – 24 ago 2026 (ampliada) |
+| Formalizar la inscripción | 6 jul – 24 ago 2026 (ampliada) |
+| Consultar la citación | desde 31 ago 2026 |
+| Prueba de admisión | domingo 20 sep 2026 |
+| Publicación de puntajes | 1 oct 2026 |
+| Inscripción de programa curricular | 1 – 6 oct 2026 |
+| Publicación de admitidos | 9 oct 2026 |
+| Postulación a programa con cupos (2) | 15 – 19 oct 2026 |
+| Resultados a programa con cupos (2) | 22 oct 2026 |
+| Postulación a programa con cupos (3) | 9 – 11 nov 2026 |
+| Resultados a programa con cupos (3) | 13 nov 2026 |
+
+> Incluye la ampliación oficial de fechas de pago e inscripción hasta el 24 de agosto de 2026 (publicada en la guía paso a paso).
+
+### Exportación a calendarios
+- Cada hito tiene un enlace "Agregar a Google Calendar" (URL `calendar.google.com/render?action=TEMPLATE`).
+- Botón "Exportar a Google Calendar (.ics)": descarga un `.ics` con todos los eventos, importable en Google Calendar (Configuración → Importar).
 
 ## 3. Historial de puntajes (2015 → actualidad)
 
