@@ -1,26 +1,87 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f0e3;
+  --foreground: #0e2a1f;
+}
+
+.dark {
+  --background: #07150e;
+  --foreground: #fff9ef;
+}
+
+@theme {
+  /* Paleta Cabildo Muisca de Bosa */
+  --color-forest-deep: #07150e;
+  --color-forest: #0e2a1f;
+  --color-forest-800: #143a2a;
+  --color-forest-700: #1b4c36;
+  --color-forest-600: #236045;
+  --color-sage: #7fae8a;
+  --color-emerald: #2ec27e;
+  --color-emerald-soft: #3fdd95;
+  --color-ocre: #e8b04b;
+  --color-ocre-soft: #f2c878;
+  --color-terracotta: #c0572b;
+  --color-terracotta-soft: #d97a4a;
+  --color-cream: #f7f0e3;
+  --color-coral: #ff6b5b;
+  --color-lagoon: #3b82f6;
+  --color-ivory: #fff9ef;
+
+  /* Patrones muiscas */
+  --background-image-muisca: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cpath d='M32 6 L58 32 L32 58 L6 32 Z' fill='none' stroke='%232ec27e' stroke-opacity='0.08'/%3E%3Cpath d='M32 22 L42 32 L32 42 L22 32 Z' fill='%232ec27e' fill-opacity='0.05'/%3E%3C/svg%3E");
+  --background-image-muisca-warm: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='24' viewBox='0 0 48 24'%3E%3Cpath d='M0 20 L12 4 L24 20 L36 4 L48 20' fill='none' stroke='%23e8b04b' stroke-opacity='0.1'/%3E%3C/svg%3E");
+
+  /* Animaciones */
+  --animate-spin-slow: spin-slow 40s linear infinite;
+  --animate-float: float 7s ease-in-out infinite;
+  --animate-float-delayed: float 9s ease-in-out 1.2s infinite;
+}
+
+@keyframes spin-slow {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-14px);
+  }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-space-grotesk);
+  --font-display: var(--font-fraunces);
+  --font-mono: var(--font-jetbrains-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+  }
+
+  ::selection {
+    background: rgb(46 194 126 / 0.35);
+    color: inherit;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  .glass {
+    @apply rounded-2xl border border-forest/10 bg-white/70 backdrop-blur-xl dark:border-white/10 dark:bg-white/5;
+  }
+
+  .glass-strong {
+    @apply rounded-2xl border border-forest/15 bg-white/85 backdrop-blur-2xl dark:border-white/10 dark:bg-forest-800/60;
+  }
 }
