@@ -25,6 +25,16 @@ npm install
 npm run dev
 ```
 
+## Configuración (Biblioteca + Panel Admin)
+
+Copia `.env.local.example` a `.env.local` y completa las credenciales de Supabase
+(URL del proyecto y anon key). Ejecuta el esquema de
+`supabase/migrations/0001_biblioteca.sql` en el SQL Editor de Supabase. Pasos
+completos en [docs/ADMIN.md](./docs/ADMIN.md).
+
+El panel de administración vive en `/admin` y la biblioteca pública en
+`/biblioteca`.
+
 ## Documentación
 
 - [PLAN.md](./PLAN.md) — plan completo de desarrollo
