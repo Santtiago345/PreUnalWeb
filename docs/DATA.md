@@ -34,9 +34,26 @@ Toda la información publicada en la plataforma proviene de **páginas oficiales
 
 ## 3. Historial de puntajes (2015 → actualidad)
 
-**Fuente:** [Dirección Nacional de Admisiones — Estadísticas](https://admisiones.unal.edu.co/) y portal de resultados/estadísticas de la UNAL.
+**Fuente:** [Estadísticas del proceso de admisión](https://admisiones.unal.edu.co/servicios-en-linea/estadisticas-del-proceso-de-admision/) — PDFs oficiales por semestre y sede.
 
-> Se completará en la **Fase 3** con los puntajes mínimos de corte por carrera y semestre.
+### Estado actual (verificado el 02/09/2026)
+
+| Alcance | Estado |
+|---------|--------|
+| Sede Bogotá · Semestre I · **2015–2022** | ✅ Cargado (49 programas, extraído del texto oficial del PDF) |
+| Sede Bogotá · Semestre I · **2023–2026** | ⏳ Pendiente (PDF oficial escaneado; enlace directo en la plataforma) |
+| Semestre II · cualquier año | ⏳ Pendiente |
+
+### Metodología
+- El valor publicado es el **puntaje del último admitido (corte)** de cada programa en el semestre I.
+- Se toma el **mínimo** entre las columnas de puntaje del PDF oficial de cada año.
+- **Promedio ponderado** = Σ(corte × admitidos) ÷ Σ(admitidos).
+- El código de extracción vive fuera del repo (dir. temporal) y los datos verificados están en `src/data/puntajes.ts`, con fuentes en `src/data/fuentesPuntajes.ts`.
+
+### Proceso para completar
+1. Descargar el PDF oficial del semestre (ver `fuentesPuntajes.ts`).
+2. Si el PDF tiene capa de texto (2015–2022): extraer el texto y parsear (el parser está documentado en este repositorio).
+3. Si el PDF está escaneado (2023–2026): verificar el valor manualmente contra el documento antes de publicarlo.
 
 ## 4. PAES y programas de admisión especial
 
