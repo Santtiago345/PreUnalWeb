@@ -77,9 +77,16 @@ Toda la información publicada en la plataforma proviene de **páginas oficiales
 
 ## 4. PAES y programas de admisión especial
 
-**Fuentes oficiales:** Resoluciones de la Vicerrectoría Académica (PAES), acuerdos del Consejo Superior Universitario (Acuerdo 12/1986 y 07/1995), páginas de las Sedes con programas especiales (PEAMA, PAET, PTIUN) y canales oficiales del Cabildo Muisca de Bosa.
+**Fuentes oficiales:** [Comunidades Indígenas — DNA](https://admisiones.unal.edu.co/pregrado/comunidades-indigenas/) · [PAES — Dirección Nacional de Programas de Pregrado](https://pregrado.unal.edu.co/paes) · [Admisión a pregrado](https://admisiones.unal.edu.co/pregrado/admision-a-pregrado/) · verificadas el 02/09/2026.
 
-> Se completará en la **Fase 5**.
+### Datos cargados
+- Definición y origen del PAES.
+- Los 6 grupos priorizados con su norma de creación (Acuerdos 022/1986, 018/1999, 30/1990, 93/1989, 013/2009, 215/2015, 301/2019).
+- Programa de Comunidades Indígenas: beneficios (inscripción gratis, 2% de cupos adicionales, matrícula mínima), requisitos (censo del Ministerio del Interior o certificado de pertenencia), pasos de inscripción y compromiso de servicio (1 año).
+
+### Ejemplos de cupos del 2% (mecanismo oficial)
+- Regla oficial: 1 cupo equivalente al **2% adicional** a los cupos regulares por programa, en la primera asignación.
+- La plataforma incluye **ejemplos ilustrativos** (100 cupos → +2; 50 → +1; 25 → +1) y una **calculadora interactiva**, todos claramente marcados como no oficiales en cuanto al número exacto final.
 
 ## Regla de oro
 
