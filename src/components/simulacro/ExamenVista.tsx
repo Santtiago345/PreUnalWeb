@@ -208,6 +208,19 @@ export function ExamenVista({
                 <M>{pregunta.enunciado}</M>
               </p>
 
+              {pregunta.afirmaciones ? (
+                <div className="mt-3 space-y-1.5">
+                  {pregunta.afirmaciones.map((a, i) => (
+                    <p key={i} className="text-base leading-relaxed">
+                      <span className="mr-1.5 font-semibold text-emerald">
+                        ({i + 1})
+                      </span>
+                      <M>{a}</M>
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+
               {pregunta.grafico ? <Grafico {...pregunta.grafico} /> : null}
 
               <div className="mt-4 grid gap-2">

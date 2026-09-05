@@ -20,7 +20,7 @@ export function M({ children }: { children: string }) {
   return (
     <>
       {partes.map((parte, i) => {
-        if (parte.startsWith("$$")) {
+        if (parte.startsWith("$$") && parte.endsWith("$$")) {
           return (
             <span
               key={i}
@@ -30,7 +30,7 @@ export function M({ children }: { children: string }) {
             />
           );
         }
-        if (parte.startsWith("$")) {
+        if (parte.startsWith("$") && parte.endsWith("$")) {
           return (
             <span
               key={i}

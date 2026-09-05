@@ -41,14 +41,35 @@ export type ResultadoSimulacro = {
   porcentaje: number;
   theta: number;
   puntajeComponente: number;
+  puntajeBruto: number;
+  penalizacion: number;
+  posibleFraude: boolean;
 };
+
+/**
+ * Penalización por salir de la pestaña (anti-trampa).
+ * Cada salida resta 0,5 puntos del puntaje del componente (escala 10±1),
+ * con un tope de -2,0 (4 salidas). Con 3 o más salidas el resultado se
+ * marca como posible fraude para revisión.
+ */
+export const PENALIZACION_POR_FALTA = 0.5;
+export const MAX_PENALIZACION = 2.0;
+export const FALTAS_POSIBLE_FRAUDE = 3;
+
+export function penalizacionPorFaltas(faltas: number): number {
+  return Math.min(faltas * PENALIZACION_POR_FALTA, MAX_PENALIZACION);
+}
 
 /**
  * Puntaje del componente de Matemáticas en la escala de la UNAL
  * (media 10, desviación 1). El valor reportado es 10 + θ, como hace la
- * Universidad al estandarizar la habilidad del componente.
+ * Universidad al estandarizar la habilidad del componente. Luego se aplica
+ * la penalización por salidas de pestaña.
  */
-export function calcularResultado(respuestas: Respuesta[]): ResultadoSimulacro {
+export function calcularResultado(
+  respuestas: Respuesta[],
+  faltas = 0,
+): ResultadoSimulacro {
   const correctas = respuestas.filter((r) => r.correcta).length;
   const total = preguntasMatematicas.length;
 
@@ -61,9 +82,15 @@ export function calcularResultado(respuestas: Respuesta[]): ResultadoSimulacro {
   });
 
   const theta = estimarTheta(items);
-  const puntajeComponente = Math.max(
+  const puntajeBruto = Math.max(
     0,
     Math.min(20, Math.round((10 + theta) * 10) / 10),
+  );
+
+  const penalizacion = penalizacionPorFaltas(faltas);
+  const puntajeComponente = Math.max(
+    0,
+    Math.round((puntajeBruto - penalizacion) * 10) / 10,
   );
 
   return {
@@ -72,5 +99,8 @@ export function calcularResultado(respuestas: Respuesta[]): ResultadoSimulacro {
     porcentaje: Math.round((correctas / total) * 100),
     theta: Math.round(theta * 100) / 100,
     puntajeComponente,
+    puntajeBruto,
+    penalizacion,
+    posibleFraude: faltas >= FALTAS_POSIBLE_FRAUDE,
   };
 }

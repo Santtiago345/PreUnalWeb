@@ -312,7 +312,16 @@ export function SimulacroAdmin() {
             <tbody>
               {terminados.map((s) => (
                 <tr key={s.id} className="border-b border-forest/5 last:border-0 dark:border-white/5">
-                  <td className="py-2 pr-4 font-medium">{s.nombre}</td>
+                  <td className="py-2 pr-4 font-medium">
+                    <span className="flex items-center gap-1.5">
+                      {s.nombre}
+                      {s.faltas >= 3 ? (
+                        <span className="rounded-full border border-coral/30 bg-coral/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-coral">
+                          Revisar
+                        </span>
+                      ) : null}
+                    </span>
+                  </td>
                   <td className="py-2 pr-4 font-mono font-semibold text-emerald">
                     {(s.puntaje_componente ?? 0).toLocaleString("es-CO")}
                   </td>

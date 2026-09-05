@@ -74,6 +74,19 @@ function TarjetaRevisada({
             <M>{pregunta.enunciado}</M>
           </p>
 
+          {pregunta.afirmaciones ? (
+            <div className="mt-3 space-y-1.5">
+              {pregunta.afirmaciones.map((a, i) => (
+                <p key={i} className="text-sm leading-relaxed">
+                  <span className="mr-1.5 font-semibold text-emerald">
+                    ({i + 1})
+                  </span>
+                  <M>{a}</M>
+                </p>
+              ))}
+            </div>
+          ) : null}
+
           {pregunta.grafico ? <Grafico {...pregunta.grafico} /> : null}
 
           {!correcta ? (
@@ -168,6 +181,20 @@ export function Revision({
           <ResultadoStat label="Porcentaje" value={`${resultado.porcentaje}%`} />
           <ResultadoStat label="Habilidad (θ)" value={resultado.theta.toFixed(2)} />
         </div>
+        {resultado.penalizacion > 0 ? (
+          <p className="mx-auto mt-3 max-w-md rounded-xl border border-coral/30 bg-coral/10 px-4 py-2.5 text-xs text-coral">
+            Penalización por {resultado.penalizacion / 0.5} salida
+            {resultado.penalizacion / 0.5 === 1 ? "" : "s"} de pestaña: −
+            {resultado.penalizacion.toLocaleString("es-CO")} puntos. Puntaje
+            bruto: {resultado.puntajeBruto.toLocaleString("es-CO")}.
+          </p>
+        ) : null}
+        {resultado.posibleFraude ? (
+          <p className="mx-auto mt-3 max-w-md rounded-xl border border-coral/40 bg-coral/10 px-4 py-2.5 text-xs font-medium text-coral">
+            Se registraron varias salidas de la pestaña. Tu resultado fue
+            marcado para revisión por el administrador.
+          </p>
+        ) : null}
         <p className="mx-auto mt-4 max-w-md text-xs leading-relaxed text-foreground/50">
           El puntaje del componente usa el modelo de Rasch (Teoría de Respuesta
           al Ítem) en una escala con media 10, igual que la prueba oficial.

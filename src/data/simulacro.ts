@@ -13,6 +13,7 @@ export type PreguntaSimulacro = {
   detalle: string;
   formula?: string;
   grafico?: GraficoPolinomio;
+  afirmaciones?: string[];
 };
 
 export type SimulacroConfig = {
@@ -114,7 +115,7 @@ export const preguntasMatematicas: PreguntaSimulacro[] = [
     tema: "Pensamiento numérico",
     nivel: "media",
     enunciado:
-      "Por 5 metros de tela y 12 metros de paño se pagaron $168.500, y por 20 metros de tela y 3 metros de paño $89.000. ¿Cuánto cuesta un metro de paño?",
+      "Por 5 metros de tela y 12 metros de paño se pagaron 168.500 pesos, y por 20 metros de tela y 3 metros de paño se pagaron 89.000 pesos. ¿Cuánto cuesta un metro de paño?",
     opciones: ["$14.050", "$13.000", "$12.250", "$11.000"],
     correcta: 1,
     explicacion:
@@ -183,8 +184,11 @@ export const preguntasMatematicas: PreguntaSimulacro[] = [
     id: 11,
     tema: "Pensamiento numérico",
     nivel: "fácil",
-    enunciado:
-      "Considere los números a = 124 y b = 34. (1) El máximo común divisor de a y b es 2. (2) El mínimo común múltiplo de a y b es $2^2 \\times 17 \\times 31$.",
+    enunciado: "Considere los números a = 124 y b = 34.",
+    afirmaciones: [
+      "El máximo común divisor de a y b es 2.",
+      "El mínimo común múltiplo de a y b es $2^2 \\times 17 \\times 31$.",
+    ],
     opciones: [
       "(1) y (2) son verdaderas.",
       "(1) es verdadera y (2) es falsa.",
@@ -202,7 +206,7 @@ export const preguntasMatematicas: PreguntaSimulacro[] = [
     tema: "Pensamiento numérico",
     nivel: "fácil",
     enunciado:
-      "Juan vendió algunas revistas cada una a $24.000 y tuvo dinero suficiente para comprar boletas para un concierto, cada una de las cuales costaba $50.000. Se quedó sin dinero después de comprarlas. La menor cantidad de revistas que debió haber vendido Juan es:",
+      "Juan vendió algunas revistas cada una a 24.000 pesos y tuvo dinero suficiente para comprar boletas para un concierto, cada una de las cuales costaba 50.000 pesos. Se quedó sin dinero después de comprarlas. La menor cantidad de revistas que debió haber vendido Juan es:",
     opciones: ["15", "25", "40", "50"],
     correcta: 1,
     explicacion:
@@ -305,7 +309,11 @@ export const preguntasMatematicas: PreguntaSimulacro[] = [
     tema: "Pensamiento aleatorio",
     nivel: "media",
     enunciado:
-      "En un estudio sobre los puntajes de los aspirantes a la Universidad Nacional, el promedio fue 500 puntos y la desviación estándar 100. La desviación estándar es el valor que, al restarse dos veces del promedio y sumarse dos veces, da los extremos del intervalo donde se encuentra el 95 % de los puntajes. Si todo admitido a Medicina está por lo menos una desviación estándar por encima del promedio, considere: (1) Una persona con 800 puntos supera al menos al 95 % de los aspirantes. (2) Un aspirante a Medicina con 590 puntos no es admitido.",
+      "En un estudio sobre los puntajes de los aspirantes a la Universidad Nacional, el promedio fue 500 puntos y la desviación estándar 100. La desviación estándar es el valor que, al restarse dos veces del promedio y sumarse dos veces, da los extremos del intervalo donde se encuentra el 95 % de los puntajes. Si todo admitido a Medicina está por lo menos una desviación estándar por encima del promedio, considere las siguientes afirmaciones:",
+    afirmaciones: [
+      "Una persona con 800 puntos supera al menos al 95 % de los aspirantes.",
+      "Un aspirante a Medicina con 590 puntos no es admitido.",
+    ],
     opciones: [
       "(1) es verdadera y (2) es falsa.",
       "(1) y (2) son verdaderas.",
@@ -356,7 +364,11 @@ export const preguntasMatematicas: PreguntaSimulacro[] = [
     tema: "Pensamiento aleatorio",
     nivel: "media",
     enunciado:
-      "En la tabla se presentan las notas obtenidas por un grupo de estudiantes: 2,5 · 3,5 · 4,0 · 5,0 · 1,0 · 3,0 · 4,5 · 3,5. (1) La nota promedio es 3,5. (2) La moda en las notas es 3,5.",
+      "En la tabla se presentan las notas obtenidas por un grupo de estudiantes: 2,5 · 3,5 · 4,0 · 5,0 · 1,0 · 3,0 · 4,5 · 3,5. De la información contenida en la tabla, considere las siguientes afirmaciones:",
+    afirmaciones: [
+      "La nota promedio es 3,5.",
+      "La moda en las notas es 3,5.",
+    ],
     opciones: [
       "(1) y (2) son verdaderas.",
       "(1) es verdadera y (2) es falsa.",
@@ -392,7 +404,8 @@ export const preguntasMatematicas: PreguntaSimulacro[] = [
     id: 24,
     tema: "Pensamiento variacional",
     nivel: "fácil",
-    enunciado: "El número que corresponde a $\\int_{1}^{6} 2x\\,dx$ es igual a:",
+    enunciado:
+      "La integral de una función continua f, para la cual f(x) > 0 en el intervalo [a, b], es igual al área de la región limitada por el eje horizontal (x), la gráfica de la función en dicho intervalo y las rectas x = a y x = b. El número que corresponde a esta área se representa por $\\int_{a}^{b} f(x)\\,dx$. Teniendo en cuenta lo anterior, el valor de $\\int_{1}^{6} 2x\\,dx$ es igual a:",
     opciones: ["35", "25", "11", "10"],
     correcta: 0,
     explicacion:

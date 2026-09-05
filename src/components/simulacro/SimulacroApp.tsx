@@ -64,7 +64,7 @@ export function SimulacroApp() {
     tiempoUsado: number,
     faltas: number,
   ) => {
-    const res = calcularResultado(respuestasFinales);
+    const res = calcularResultado(respuestasFinales, faltas);
     if (sesionId) {
       await finalizarSesion(sesionId, respuestasFinales, res, tiempoUsado, faltas);
     }
@@ -132,7 +132,7 @@ export function SimulacroApp() {
           <InfoItem
             icon={<AlertTriangle className="h-5 w-5" />}
             titulo="Sin trampa"
-            texto="Salir de la pestaña durante el simulacro se registra como falta."
+            texto="Cada salida de la pestaña resta 0,5 puntos (tope −2,0). Con 3 o más, tu resultado se marca para revisión."
           />
         </div>
 
