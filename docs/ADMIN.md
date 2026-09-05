@@ -12,7 +12,8 @@ Guía para activar y gestionar la **Biblioteca de Preparación** y el **Panel de
 1. En el Dashboard, abre **SQL Editor**.
 2. Pega y ejecuta el contenido de **`supabase/migrations/0001_biblioteca.sql`**.
 3. Luego ejecuta **`supabase/migrations/0002_examenes.sql`** (tabla de exámenes anteriores).
-   Esto crea las tablas `categorias`, `contenidos`, `examenes` y `admins`, las políticas de seguridad (RLS) y el bucket público `biblioteca`.
+4. Luego ejecuta **`supabase/migrations/0003_simulacro.sql`** (sesiones y configuración del simulacro).
+   Esto crea las tablas `categorias`, `contenidos`, `examenes`, `admins`, `simulacro_config` y `simulacro_sesiones`, las políticas de seguridad (RLS) y el bucket público `biblioteca`.
 
 ## 3. Crear el usuario administrador
 
@@ -49,6 +50,21 @@ El contenido aparece en la sección **Biblioteca** (`/biblioteca`), agrupado por
 ## Nota sobre exámenes oficiales
 
 La UNAL **no publica** los exámenes aplicados (banco de preguntas reservado, Acuerdo 039 de 1998). El recopilatorio de la plataforma es material de práctica gestionado por el administrador; las demostraciones oficiales se enlazan directamente desde la sección pública.
+
+## 7. Panel del simulacro (`/admin/simulacro`)
+
+Entra con la misma cuenta de administrador (tabla `admins`). Desde ahí puedes:
+
+- **Habilitar / deshabilitar** el simulacro (controla el botón «Empezar simulacro» de los estudiantes).
+- Ver en vivo quién está **resolviendo el examen**, cuántas preguntas llevan y su tiempo.
+- Ver quiénes **terminaron**, su puntaje del componente (escala 10±1), correctas y faltas.
+- Revisar **estadísticas**: promedio, mejor puntaje, quién terminó primero y las preguntas más acertadas/falladas.
+
+Los estudiantes solo ingresan su **nombre** (sin contraseña). Su progreso y resultados se guardan en `simulacro_sesiones`.
+
+## Nota de seguridad (simulacro)
+
+Por simplicidad del flujo "solo nombre", las políticas permiten que los anónimos inserten y actualicen sus sesiones. Para un preuniversitario de bajo riesgo es aceptable; si necesitas más control, agrega un `token` por sesión y restringe las actualizaciones por token.
 
 ## Seguridad
 
