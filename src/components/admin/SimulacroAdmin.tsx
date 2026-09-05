@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import {
   Award,
@@ -52,10 +52,10 @@ function NoConfigurado() {
   return (
     <div className="glass mx-auto max-w-2xl p-6 text-center">
       <h2 className="font-display text-xl font-semibold">
-        Panel de simulacro en configuración
+        Panel de simulacro en configuraciÃ³n
       </h2>
       <p className="mt-3 text-sm leading-relaxed text-foreground/60">
-        Ejecuta la migración <code className="font-mono text-emerald">0003_simulacro.sql</code> en Supabase y
+        Ejecuta la migraciÃ³n <code className="font-mono text-emerald">0003_simulacro.sql</code> en Supabase y
         configura las variables de entorno para activar el seguimiento en vivo.
       </p>
     </div>
@@ -71,21 +71,28 @@ export function SimulacroAdmin() {
   const [cargandoSesiones, setCargandoSesiones] = useState(true);
   const [ahora, setAhora] = useState(() => Date.now());
 
-  const cargar = useCallback(async () => {
+  const cargarSesiones = useCallback(async () => {
     const supabase = getSupabase();
     if (!supabase) return;
-    const [{ data: cfg }, { data: ses }] = await Promise.all([
-      supabase.from("simulacro_config").select("habilitado").eq("id", 1).single(),
-      supabase
-        .from("simulacro_sesiones")
-        .select("*")
-        .order("iniciado_en", { ascending: false })
-        .limit(500),
-    ]);
-    setHabilitado(cfg?.habilitado ?? true);
+    const { data: ses } = await supabase
+      .from("simulacro_sesiones")
+      .select("*")
+      .order("iniciado_en", { ascending: false })
+      .limit(500);
     setSesiones((ses ?? []) as Sesion[]);
     setCargandoSesiones(false);
     setAhora(Date.now());
+  }, []);
+
+  const cargarHabilitado = useCallback(async () => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    const { data: cfg } = await supabase
+      .from("simulacro_config")
+      .select("habilitado")
+      .eq("id", 1)
+      .single();
+    setHabilitado(cfg?.habilitado ?? true);
   }, []);
 
   useEffect(() => {
@@ -115,20 +122,106 @@ export function SimulacroAdmin() {
   useEffect(() => {
     if (!esAdmin) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void cargar();
-    const id = setInterval(() => void cargar(), 4000);
-    return () => clearInterval(id);
-  }, [esAdmin, cargar]);
+    void cargarSesiones();
+    void cargarHabilitado();
+    let id: ReturnType<typeof setInterval> | null = null;
+    const arrancar = () => {
+      if (!id) {
+        id = setInterval(() => {
+          // No sondea cuando la pestaÃ±a no estÃ¡ visible (ahorra recursos)
+          if (!document.hidden) void cargarSesiones();
+        }, 4000);
+      }
+    };
+    const pausar = () => {
+      if (id) {
+        clearInterval(id);
+        id = null;
+      }
+      if (!document.hidden) void cargarSesiones();
+    };
+    arrancar();
+    document.addEventListener("visibilitychange", pausar);
+    return () => {
+      if (id) clearInterval(id);
+      document.removeEventListener("visibilitychange", pausar);
+    };
+  }, [esAdmin, cargarSesiones, cargarHabilitado]);
 
   const toggleHabilitado = async () => {
     const ok = await habilitarSimulacro(!habilitado);
     if (ok) setHabilitado(!habilitado);
   };
 
-  const salir = async () => {
+const salir = async () => {
     await getSupabase()?.auth.signOut();
     setUser(null);
   };
+
+  const enCurso = useMemo(
+    () => sesiones.filter((s) => !s.terminado_en),
+    [sesiones],
+  );
+  const terminados = useMemo(
+    () => sesiones.filter((s) => s.terminado_en),
+    [sesiones],
+  );
+  const promedioComponente = useMemo(
+    () =>
+      terminados.length
+        ? terminados.reduce((a, s) => a + (s.puntaje_componente ?? 0), 0) /
+          terminados.length
+        : 0,
+    [terminados],
+  );
+  const mejor = useMemo(
+    () =>
+      [...terminados].sort(
+        (a, b) => (b.puntaje_componente ?? 0) - (a.puntaje_componente ?? 0),
+      )[0],
+    [terminados],
+  );
+  const primero = useMemo(
+    () =>
+      [...terminados].sort(
+        (a, b) => (a.tiempo_usado ?? 0) - (b.tiempo_usado ?? 0),
+      )[0],
+    [terminados],
+  );
+
+  // Agregación de aciertos/fallos por pregunta (memoizada)
+  const { masFallada, masAcertada, datosPreguntas } = useMemo(() => {
+    const conteo: Record<number, { ok: number; mal: number }> = {};
+    for (const s of terminados) {
+      for (const r of s.respuestas ?? []) {
+        conteo[r.pregunta] ??= { ok: 0, mal: 0 };
+        if (r.correcta) conteo[r.pregunta].ok += 1;
+        else conteo[r.pregunta].mal += 1;
+      }
+    }
+    const preguntasConFallos = Object.entries(conteo)
+      .filter(([, v]) => v.mal > 0)
+      .sort((a, b) => b[1].mal - a[1].mal);
+    const fallada = preguntasConFallos[0];
+    const acertada = Object.entries(conteo)
+      .filter(([, v]) => v.ok > 0)
+      .sort((a, b) => b[1].ok - a[1].ok)[0];
+
+    const datos = preguntasMatematicas.map((p) => {
+      const c = conteo[p.id] ?? { ok: 0, mal: 0 };
+      return {
+        nombre: `P${p.id}`,
+        aciertos: c.ok,
+        fallos: c.mal,
+        total: c.ok + c.mal,
+        enunciado: p.enunciado.replace(/[$\\]/g, "").slice(0, 90),
+      };
+    });
+    return { masFallada: fallada, masAcertada: acertada, datosPreguntas: datos };
+  }, [terminados]);
+
+  const enunciadoDe = (id: number) =>
+    preguntasMatematicas.find((p) => p.id === id)?.enunciado ?? "";
 
   if (!supabaseConfigurado) return <NoConfigurado />;
 
@@ -148,7 +241,7 @@ export function SimulacroAdmin() {
     );
   }
 
-  if (!esAdmin) {
+if (!esAdmin) {
     return (
       <div className="glass mx-auto max-w-md p-6 text-center">
         <h2 className="font-display text-xl font-semibold">Sin autorización</h2>
@@ -158,51 +251,6 @@ export function SimulacroAdmin() {
       </div>
     );
   }
-
-  const enCurso = sesiones.filter((s) => !s.terminado_en);
-  const terminados = sesiones.filter((s) => s.terminado_en);
-  const promedioComponente = terminados.length
-    ? terminados.reduce((a, s) => a + (s.puntaje_componente ?? 0), 0) /
-      terminados.length
-    : 0;
-  const mejor = [...terminados].sort(
-    (a, b) => (b.puntaje_componente ?? 0) - (a.puntaje_componente ?? 0),
-  )[0];
-  const primero = [...terminados].sort(
-    (a, b) => (a.tiempo_usado ?? 0) - (b.tiempo_usado ?? 0),
-  )[0];
-
-  // Agregación de aciertos/fallos por pregunta
-  const conteo: Record<number, { ok: number; mal: number }> = {};
-  for (const s of terminados) {
-    for (const r of s.respuestas ?? []) {
-      conteo[r.pregunta] ??= { ok: 0, mal: 0 };
-      if (r.correcta) conteo[r.pregunta].ok += 1;
-      else conteo[r.pregunta].mal += 1;
-    }
-  }
-  const preguntasConFallos = Object.entries(conteo)
-    .filter(([, v]) => v.mal > 0)
-    .sort((a, b) => b[1].mal - a[1].mal);
-  const masFallada = preguntasConFallos[0];
-  const masAcertada = Object.entries(conteo)
-    .filter(([, v]) => v.ok > 0)
-    .sort((a, b) => b[1].ok - a[1].ok)[0];
-
-  // Datos para las gráficas: una barra por pregunta (aciertos y fallos)
-  const datosPreguntas = preguntasMatematicas.map((p) => {
-    const c = conteo[p.id] ?? { ok: 0, mal: 0 };
-    return {
-      nombre: `P${p.id}`,
-      aciertos: c.ok,
-      fallos: c.mal,
-      total: c.ok + c.mal,
-      enunciado: p.enunciado.replace(/[$\\]/g, "").slice(0, 90),
-    };
-  });
-
-  const enunciadoDe = (id: number) =>
-    preguntasMatematicas.find((p) => p.id === id)?.enunciado ?? "";
 
   return (
     <div className="space-y-6">
@@ -220,7 +268,7 @@ export function SimulacroAdmin() {
             variant="secondary"
             size="sm"
             icon={<RefreshCw className="h-4 w-4" />}
-            onClick={() => void cargar()}
+            onClick={() => void cargarSesiones()}
           >
             Actualizar
           </Button>
@@ -252,7 +300,7 @@ export function SimulacroAdmin() {
               {habilitado ? "Simulacro habilitado" : "Simulacro deshabilitado"}
             </p>
             <p className="text-xs text-foreground/50">
-              Controla el botón «Empezar simulacro» de los estudiantes.
+              Controla el botÃ³n Â«Empezar simulacroÂ» de los estudiantes.
             </p>
           </div>
         </div>
@@ -265,10 +313,10 @@ export function SimulacroAdmin() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatMini label="Estudiantes" valor={String(sesiones.length)} icon={<Users className="h-4 w-4" />} />
-        <StatMini label="En curso" valor={String(enCurso.length)} />
-        <StatMini label="Terminados" valor={String(terminados.length)} />
-        <StatMini label="Prom. componente" valor={promedioComponente.toFixed(1)} />
+        <StatMiniMemo label="Estudiantes" valor={String(sesiones.length)} icon={<Users className="h-4 w-4" />} />
+        <StatMiniMemo label="En curso" valor={String(enCurso.length)} />
+        <StatMiniMemo label="Terminados" valor={String(terminados.length)} />
+        <StatMiniMemo label="Prom. componente" valor={promedioComponente.toFixed(1)} />
       </div>
 
       <section className="glass p-5">
@@ -306,7 +354,7 @@ export function SimulacroAdmin() {
               {enCurso.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="py-4 text-center text-foreground/50">
-                    Nadie está resolviendo el simulacro ahora.
+                    Nadie estÃ¡ resolviendo el simulacro ahora.
                   </td>
                 </tr>
               ) : null}
@@ -358,7 +406,7 @@ export function SimulacroAdmin() {
               {terminados.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-4 text-center text-foreground/50">
-                    Aún no hay resultados.
+                    AÃºn no hay resultados.
                   </td>
                 </tr>
               ) : null}
@@ -369,32 +417,32 @@ export function SimulacroAdmin() {
 
       {terminados.length > 0 ? (
         <section className="glass p-5">
-          <h3 className="font-display text-base font-semibold">Estadísticas</h3>
+          <h3 className="font-display text-base font-semibold">EstadÃ­sticas</h3>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {mejor ? (
-              <StatCard
+              <StatCardMemo
                 icon={<Award className="h-4 w-4" />}
                 titulo="Mejor puntaje"
-                valor={`${mejor.nombre} · ${(mejor.puntaje_componente ?? 0).toLocaleString("es-CO")}`}
+                valor={`${mejor.nombre} Â· ${(mejor.puntaje_componente ?? 0).toLocaleString("es-CO")}`}
               />
             ) : null}
             {primero ? (
-              <StatCard
+              <StatCardMemo
                 titulo="Primero en terminar"
-                valor={`${primero.nombre} · ${formatearTiempo(primero.tiempo_usado ?? 0)}`}
+                valor={`${primero.nombre} Â· ${formatearTiempo(primero.tiempo_usado ?? 0)}`}
               />
             ) : null}
             {masFallada ? (
-              <StatCard
-                titulo="Pregunta más fallada"
-                valor={`#${masFallada[0]} · ${masFallada[1].mal} fallos`}
+              <StatCardMemo
+                titulo="Pregunta mÃ¡s fallada"
+                valor={`#${masFallada[0]} Â· ${masFallada[1].mal} fallos`}
                 texto={enunciadoDe(Number(masFallada[0]))}
               />
             ) : null}
             {masAcertada ? (
-              <StatCard
-                titulo="Pregunta más acertada"
-                valor={`#${masAcertada[0]} · ${masAcertada[1].ok} aciertos`}
+              <StatCardMemo
+                titulo="Pregunta mÃ¡s acertada"
+                valor={`#${masAcertada[0]} Â· ${masAcertada[1].ok} aciertos`}
                 texto={enunciadoDe(Number(masAcertada[0]))}
               />
             ) : null}
@@ -406,7 +454,7 @@ export function SimulacroAdmin() {
                 Aciertos por pregunta
               </h4>
               <p className="text-xs text-foreground/50">
-                La barra en esmeralda es la más acertada.
+                La barra en esmeralda es la mÃ¡s acertada.
               </p>
               <div className="mt-3 h-64">
                 <ResponsiveContainer width="100%" height="100%">
@@ -419,7 +467,7 @@ export function SimulacroAdmin() {
                       formatter={(v, name) => [Number(v ?? 0), name === "aciertos" ? "Aciertos" : "Fallos"]}
                       labelFormatter={(l, p) => {
                         const d = p?.[0]?.payload;
-                        return d?.enunciado ? `${l} · ${d.enunciado}` : String(l);
+                        return d?.enunciado ? `${l} Â· ${d.enunciado}` : String(l);
                       }}
                     />
                     <Bar dataKey="aciertos" fill="#2ec27e" radius={[4, 4, 0, 0]} />
@@ -431,7 +479,7 @@ export function SimulacroAdmin() {
             <div>
               <h4 className="text-sm font-semibold">Fallos por pregunta</h4>
               <p className="text-xs text-foreground/50">
-                La barra en coral es la más fallada.
+                La barra en coral es la mÃ¡s fallada.
               </p>
               <div className="mt-3 h-64">
                 <ResponsiveContainer width="100%" height="100%">
@@ -444,7 +492,7 @@ export function SimulacroAdmin() {
                       formatter={(v, name) => [Number(v ?? 0), name === "fallos" ? "Fallos" : "Aciertos"]}
                       labelFormatter={(l, p) => {
                         const d = p?.[0]?.payload;
-                        return d?.enunciado ? `${l} · ${d.enunciado}` : String(l);
+                        return d?.enunciado ? `${l} Â· ${d.enunciado}` : String(l);
                       }}
                     />
                     <Bar dataKey="fallos" fill="#ff6b5b" radius={[4, 4, 0, 0]} />
@@ -457,7 +505,7 @@ export function SimulacroAdmin() {
       ) : null}
 
       {cargandoSesiones ? (
-        <p className="text-center text-sm text-foreground/50">Cargando…</p>
+        <p className="text-center text-sm text-foreground/50">Cargandoâ€¦</p>
       ) : null}
     </div>
   );
@@ -485,6 +533,8 @@ function StatMini({
   );
 }
 
+const StatMiniMemo = memo(StatMini);
+
 function StatCard({
   icon,
   titulo,
@@ -509,3 +559,6 @@ function StatCard({
     </div>
   );
 }
+
+const StatCardMemo = memo(StatCard);
+

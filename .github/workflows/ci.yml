@@ -8,7 +8,7 @@ on:
 
 jobs:
   quality:
-    name: Lint, Typecheck y Build
+    name: Lint, Typecheck, Build y Tests
     runs-on: ubuntu-latest
 
     steps:
@@ -32,3 +32,23 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Tests automáticos (calificación, datos, bundle)
+        run: npm test
+
+      - name: Resumen de optimización (reporte automático)
+        if: always()
+        shell: bash
+        run: |
+          TOTAL=$(du -sb .next/static/chunks 2>/dev/null | cut -f1 || echo 0)
+          MAX=$(find .next/static/chunks -name '*.js' -printf '%s\n' 2>/dev/null | sort -n | tail -1 || echo 0)
+          {
+            echo "## 🔍 Resumen de optimización"
+            echo ""
+            echo "| Métrica | Valor | Límite |"
+            echo "|---|---|---|"
+            echo "| Tamaño total JS | $((TOTAL/1024)) KB | 2150 KB |"
+            echo "| Chunk más grande | $((MAX/1024)) KB | 500 KB |"
+            echo ""
+            echo "_Si una métrica supera el límite, el test de bundle falla. Revisa qué se agregó antes de subir el límite (ver tests/bundle.test.ts y docs/PERFORMANCE.md)._"
+          } >> "$GITHUB_STEP_SUMMARY"

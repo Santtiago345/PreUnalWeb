@@ -41,3 +41,12 @@ El panel de administración vive en `/admin` y la biblioteca pública en
 - [docs/DESIGN.md](./docs/DESIGN.md) — guía de identidad visual
 - [docs/DATA.md](./docs/DATA.md) — fuentes de datos
 - [docs/ADMIN.md](./docs/ADMIN.md) — manual del administrador
+- [docs/PERFORMANCE.md](./docs/PERFORMANCE.md) — optimización y tests automáticos
+
+## Tests
+
+```bash
+npm run build && npm test
+```
+
+Ejecuta tests de calificación (Rasch), integridad de datos y presupuesto de bundle. El CI los corre en cada push y publica un resumen de optimización.

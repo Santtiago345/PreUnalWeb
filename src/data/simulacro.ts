@@ -116,7 +116,7 @@ export const preguntasMatematicas: PreguntaSimulacro[] = [
     nivel: "media",
     enunciado:
       "Por 5 metros de tela y 12 metros de paño se pagaron 168.500 pesos, y por 20 metros de tela y 3 metros de paño se pagaron 89.000 pesos. ¿Cuánto cuesta un metro de paño?",
-    opciones: ["$14.050", "$13.000", "$12.250", "$11.000"],
+    opciones: ["14.050", "13.000", "12.250", "11.000"],
     correcta: 1,
     explicacion:
       "Plantea dos ecuaciones. Multiplica la primera por 4 para igualar la tela y resta: 45p = 585.000, así que p = 13.000. Truco: elimina la variable de la tela.",
