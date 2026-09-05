@@ -1,16 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import {
   FileText,
   LogOut,
   Pencil,
   Plus,
   Save,
+  Timer,
   Trash2,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/Button";
+import { Button, buttonVariants } from "@/components/ui/Button";
 import { AdminExamenes } from "@/components/admin/AdminExamenes";
 import { getSupabase } from "@/lib/supabase";
 import type { Categoria, Contenido } from "@/lib/tipos";
@@ -155,9 +157,18 @@ export function AdminGestor({ onLogout }: { onLogout: () => void }) {
             Gestiona la biblioteca de contenido de preparación.
           </p>
         </div>
-        <Button variant="secondary" size="sm" icon={<LogOut className="h-4 w-4" />} onClick={salir}>
-          Cerrar sesión
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/admin/simulacro"
+            className={buttonVariants({ variant: "primary", size: "sm" })}
+          >
+            <Timer className="h-4 w-4" />
+            Control del simulacro
+          </Link>
+          <Button variant="secondary" size="sm" icon={<LogOut className="h-4 w-4" />} onClick={salir}>
+            Cerrar sesión
+          </Button>
+        </div>
       </div>
 
       {mensaje ? (

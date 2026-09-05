@@ -54,7 +54,15 @@ export function Footer() {
           <p>
             © {new Date().getFullYear()} {site.name} · {site.community}
           </p>
-          <p>Hecho para la comunidad, con identidad muisca.</p>
+          <div className="flex items-center gap-4">
+            <p>Hecho para la comunidad, con identidad muisca.</p>
+            <Link
+              href="/admin"
+              className="transition-colors hover:text-emerald"
+            >
+              Admin
+            </Link>
+          </div>
         </div>
       </div>
     </footer>
