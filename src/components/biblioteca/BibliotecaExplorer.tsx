@@ -114,14 +114,15 @@ export function BibliotecaExplorer() {
     );
   }
 
-  if (categorias.length === 0) {
+  if (categorias.length === 0 || contenidos.length === 0) {
     return (
       <div className="glass mx-auto max-w-xl p-8 text-center">
         <h2 className="font-display text-xl font-semibold">
           Aún no hay contenido
         </h2>
         <p className="mt-2 text-sm text-foreground/60">
-          El administrador publicará material de estudio próximamente.
+          El administrador publicará material de estudio próximamente. Las
+          categorías ya están preparadas para organizar el contenido.
         </p>
       </div>
     );

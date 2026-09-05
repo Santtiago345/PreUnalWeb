@@ -27,6 +27,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(site.url),
   title: {
     default: `${site.name} · ${site.tagline}`,
     template: `%s · ${site.name}`,
@@ -42,6 +43,22 @@ export const metadata: Metadata = {
     "simulacro",
     "Bosa",
   ],
+  applicationName: site.name,
+  authors: [{ name: site.community }],
+  creator: site.name,
+  openGraph: {
+    type: "website",
+    locale: "es_CO",
+    url: site.url,
+    siteName: site.name,
+    title: `${site.name} · ${site.tagline}`,
+    description: `${site.tagline}, con identidad del ${site.community}.`,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${site.name} · ${site.tagline}`,
+    description: `${site.tagline}, con identidad del ${site.community}.`,
+  },
 };
 
 export const viewport: Viewport = {
