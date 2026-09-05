@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, Clock, Flag } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
@@ -9,6 +9,7 @@ import { M } from "@/components/simulacro/Math";
 import {
   preguntasMatematicas,
   TIEMPO_TOTAL_SEGUNDOS,
+  type PreguntaSimulacro,
 } from "@/data/simulacro";
 import type { Respuesta } from "@/lib/calificacion";
 import { actualizarProgreso } from "@/lib/simulacroSesion";
@@ -19,6 +20,143 @@ function formatearTiempo(segundos: number) {
   const s = segundos % 60;
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
+
+/**
+ * Tarjeta de pregunta memorizada: solo se re-renderiza cuando cambia SU
+ * respuesta seleccionada. Así el tic del cronómetro no re-renderiza las 25.
+ */
+const PreguntaCard = memo(function PreguntaCard({
+  pregunta,
+  seleccionada,
+  onElegir,
+}: {
+  pregunta: PreguntaSimulacro;
+  seleccionada: number | undefined;
+  onElegir: (pregunta: number, opcion: number) => void;
+}) {
+  return (
+    <article
+      id={`pregunta-${pregunta.id}`}
+      className="glass p-5 sm:p-6"
+    >
+      <div className="flex items-center gap-2">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald/15 font-mono text-sm font-bold text-emerald">
+          {pregunta.id}
+        </span>
+        <span className="rounded-full border border-white/10 px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-foreground/50">
+          {pregunta.tema}
+        </span>
+        <span
+          className={cn(
+            "rounded-full border px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide",
+            pregunta.nivel === "fácil"
+              ? "border-emerald/30 text-emerald"
+              : pregunta.nivel === "media"
+                ? "border-ocre/30 text-ocre"
+                : "border-coral/30 text-coral",
+          )}
+        >
+          {pregunta.nivel}
+        </span>
+      </div>
+
+      <p className="mt-3 text-base font-medium leading-relaxed">
+        <M>{pregunta.enunciado}</M>
+      </p>
+
+      {pregunta.afirmaciones ? (
+        <div className="mt-3 space-y-1.5">
+          {pregunta.afirmaciones.map((a, i) => (
+            <p key={i} className="text-base leading-relaxed">
+              <span className="mr-1.5 font-semibold text-emerald">({i + 1})</span>
+              <M>{a}</M>
+            </p>
+          ))}
+        </div>
+      ) : null}
+
+      {pregunta.grafico ? <Grafico {...pregunta.grafico} /> : null}
+
+      <div className="mt-4 grid gap-2">
+        {pregunta.opciones.map((opcion, i) => {
+          const activa = seleccionada === i;
+          const letra = String.fromCharCode(65 + i);
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={() => onElegir(pregunta.id, i)}
+              aria-pressed={activa}
+              className={cn(
+                "flex items-start gap-3 rounded-xl border px-4 py-3 text-left text-sm transition-colors",
+                activa
+                  ? "border-emerald bg-emerald/10 font-medium"
+                  : "border-forest/10 hover:border-emerald/40 dark:border-white/10",
+              )}
+            >
+              <span
+                className={cn(
+                  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-mono text-xs font-bold",
+                  activa
+                    ? "bg-emerald text-forest-deep"
+                    : "bg-white/5 text-foreground/60",
+                )}
+              >
+                {letra}
+              </span>
+              <span className="leading-relaxed">
+                <M>{opcion}</M>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </article>
+  );
+});
+
+/**
+ * Cronómetro aislado: mantiene su propio estado y solo re-renderiza el
+ * número (no toda la pantalla). Escribe el tiempo restante en un ref del
+ * padre y avisa cuando se agota.
+ */
+const Cronometro = memo(function Cronometro({
+  restanteRef,
+  onAgotado,
+}: {
+  restanteRef: React.MutableRefObject<number>;
+  onAgotado: () => void;
+}) {
+  const [restante, setRestante] = useState(TIEMPO_TOTAL_SEGUNDOS);
+  const agotado = useRef(false);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setRestante((t) => (t > 0 ? t - 1 : 0));
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    restanteRef.current = restante;
+    if (restante === 0 && !agotado.current) {
+      agotado.current = true;
+      onAgotado();
+    }
+  }, [restante, restanteRef, onAgotado]);
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-mono text-sm font-bold tabular-nums",
+        restante < 300 ? "bg-coral/15 text-coral" : "bg-emerald/15 text-emerald",
+      )}
+    >
+      <Clock className="h-4 w-4" />
+      {formatearTiempo(restante)}
+    </span>
+  );
+});
 
 export function ExamenVista({
   nombre,
@@ -34,45 +172,46 @@ export function ExamenVista({
   ) => void;
 }) {
   const [respuestas, setRespuestas] = useState<Record<number, number>>({});
-  const [tiempo, setTiempo] = useState(TIEMPO_TOTAL_SEGUNDOS);
   const [faltas, setFaltas] = useState(0);
   const [advertencia, setAdvertencia] = useState(false);
   const finalizado = useRef(false);
+  const respuestasRef = useRef(respuestas);
+  const faltasRef = useRef(faltas);
+  const restanteRef = useRef(TIEMPO_TOTAL_SEGUNDOS);
+
+  // Mantiene las refs sincronizadas sin tocar el DOM (solo en effects)
+  useEffect(() => {
+    respuestasRef.current = respuestas;
+  }, [respuestas]);
+  useEffect(() => {
+    faltasRef.current = faltas;
+  }, [faltas]);
 
   const respondidas = Object.keys(respuestas).length;
   const total = preguntasMatematicas.length;
   const faltan = total - respondidas;
 
   const finalizar = useCallback(
-    (tiempoUsado: number, faltasFinales: number) => {
+    (tiempoUsado: number) => {
       if (finalizado.current) return;
       finalizado.current = true;
       const r: Respuesta[] = preguntasMatematicas.map((p) => {
-        const sel = respuestas[p.id];
+        const sel = respuestasRef.current[p.id];
         return {
           pregunta: p.id,
           seleccion: sel ?? -1,
           correcta: sel === p.correcta,
         };
       });
-      onFinalizar(r, tiempoUsado, faltasFinales);
+      onFinalizar(r, tiempoUsado, faltasRef.current);
     },
-    [onFinalizar, respuestas],
+    [onFinalizar],
   );
 
-  // Cronómetro
-  useEffect(() => {
-    const id = setInterval(() => {
-      setTiempo((prev) => Math.max(0, prev - 1));
-    }, 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  useEffect(() => {
-    if (tiempo === 0 && !finalizado.current) {
-      finalizar(TIEMPO_TOTAL_SEGUNDOS, faltas);
-    }
-  }, [tiempo, faltas, finalizar]);
+  const onAgotado = useCallback(
+    () => finalizar(TIEMPO_TOTAL_SEGUNDOS),
+    [finalizar],
+  );
 
   // Anti-trampa: detecta cuando el estudiante sale de la pestaña
   useEffect(() => {
@@ -87,19 +226,23 @@ export function ExamenVista({
       document.removeEventListener("visibilitychange", manejarVisibilidad);
   }, []);
 
-  const elegir = (pregunta: number, opcion: number) => {
-    if (finalizado.current) return;
-    setRespuestas((prev) => {
+  const elegir = useCallback(
+    (pregunta: number, opcion: number) => {
+      if (finalizado.current) return;
+      const prev = respuestasRef.current;
+      if (prev[pregunta] === opcion) return;
       const next = { ...prev, [pregunta]: opcion };
+      respuestasRef.current = next;
+      setRespuestas(next);
       if (sesionId) {
-        void actualizarProgreso(sesionId, Object.keys(next).length, faltas);
+        void actualizarProgreso(sesionId, Object.keys(next).length, faltasRef.current);
       }
-      return next;
-    });
-  };
+    },
+    [sesionId],
+  );
 
   const terminar = () => {
-    finalizar(TIEMPO_TOTAL_SEGUNDOS - tiempo, faltas);
+    finalizar(TIEMPO_TOTAL_SEGUNDOS - restanteRef.current);
   };
 
   return (
@@ -114,17 +257,7 @@ export function ExamenVista({
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <span
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-mono text-sm font-bold tabular-nums",
-                tiempo < 300
-                  ? "bg-coral/15 text-coral"
-                  : "bg-emerald/15 text-emerald",
-              )}
-            >
-              <Clock className="h-4 w-4" />
-              {formatearTiempo(tiempo)}
-            </span>
+            <Cronometro restanteRef={restanteRef} onAgotado={onAgotado} />
             <Button
               variant="primary"
               size="sm"
@@ -163,10 +296,7 @@ export function ExamenVista({
               como una falta. La calificación del simulacro busca medir tu nivel
               real, como en el examen oficial.
             </p>
-            <Button
-              className="mt-5"
-              onClick={() => setAdvertencia(false)}
-            >
+            <Button className="mt-5" onClick={() => setAdvertencia(false)}>
               Regresar a la prueba
             </Button>
           </div>
@@ -175,90 +305,14 @@ export function ExamenVista({
 
       {/* Preguntas */}
       <div className="mx-auto max-w-3xl space-y-6">
-        {preguntasMatematicas.map((pregunta) => {
-          const seleccionada = respuestas[pregunta.id];
-          return (
-            <article
-              key={pregunta.id}
-              id={`pregunta-${pregunta.id}`}
-              className="glass p-5 sm:p-6"
-            >
-              <div className="flex items-center gap-2">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald/15 font-mono text-sm font-bold text-emerald">
-                  {pregunta.id}
-                </span>
-                <span className="rounded-full border border-white/10 px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-foreground/50">
-                  {pregunta.tema}
-                </span>
-                <span
-                  className={cn(
-                    "rounded-full border px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide",
-                    pregunta.nivel === "fácil"
-                      ? "border-emerald/30 text-emerald"
-                      : pregunta.nivel === "media"
-                        ? "border-ocre/30 text-ocre"
-                        : "border-coral/30 text-coral",
-                  )}
-                >
-                  {pregunta.nivel}
-                </span>
-              </div>
-
-              <p className="mt-3 text-base font-medium leading-relaxed">
-                <M>{pregunta.enunciado}</M>
-              </p>
-
-              {pregunta.afirmaciones ? (
-                <div className="mt-3 space-y-1.5">
-                  {pregunta.afirmaciones.map((a, i) => (
-                    <p key={i} className="text-base leading-relaxed">
-                      <span className="mr-1.5 font-semibold text-emerald">
-                        ({i + 1})
-                      </span>
-                      <M>{a}</M>
-                    </p>
-                  ))}
-                </div>
-              ) : null}
-
-              {pregunta.grafico ? <Grafico {...pregunta.grafico} /> : null}
-
-              <div className="mt-4 grid gap-2">
-                {pregunta.opciones.map((opcion, i) => {
-                  const activa = seleccionada === i;
-                  const letra = String.fromCharCode(65 + i);
-                  return (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => elegir(pregunta.id, i)}
-                      className={cn(
-                        "flex items-start gap-3 rounded-xl border px-4 py-3 text-left text-sm transition-colors",
-                        activa
-                          ? "border-emerald bg-emerald/10 font-medium"
-                          : "border-forest/10 hover:border-emerald/40 dark:border-white/10",
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-mono text-xs font-bold",
-                          activa
-                            ? "bg-emerald text-forest-deep"
-                            : "bg-white/5 text-foreground/60",
-                        )}
-                      >
-                        {letra}
-                      </span>
-                      <span className="leading-relaxed">
-                        <M>{opcion}</M>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </article>
-          );
-        })}
+        {preguntasMatematicas.map((pregunta) => (
+          <PreguntaCard
+            key={pregunta.id}
+            pregunta={pregunta}
+            seleccionada={respuestas[pregunta.id]}
+            onElegir={elegir}
+          />
+        ))}
 
         <div className="glass p-6 text-center">
           <p className="text-sm text-foreground/60">

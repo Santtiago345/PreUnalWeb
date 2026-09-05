@@ -4,15 +4,25 @@ import { Fragment } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 
+// Caché de renderizado KaTeX: las cadenas del banco de preguntas son
+// estáticas, así que cada fórmula se calcula una sola vez por sesión.
+const katexCache = new Map<string, string>();
+
 function renderMath(tex: string, display: boolean) {
+  const key = (display ? "%%" : "$") + tex;
+  const cached = katexCache.get(key);
+  if (cached !== undefined) return cached;
+  let html: string;
   try {
-    return katex.renderToString(tex, {
+    html = katex.renderToString(tex, {
       throwOnError: false,
       displayMode: display,
     });
   } catch {
-    return tex;
+    html = tex;
   }
+  katexCache.set(key, html);
+  return html;
 }
 
 export function M({ children }: { children: string }) {
