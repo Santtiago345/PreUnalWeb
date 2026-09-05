@@ -15,3 +15,13 @@ export type Contenido = {
   archivo_url: string | null;
   creado_en: string;
 };
+
+export type Examen = {
+  id: string;
+  anio: number;
+  titulo: string;
+  descripcion: string | null;
+  tipo: string;
+  archivo_url: string | null;
+  creado_en: string;
+};

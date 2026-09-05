@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
+import { AdminExamenes } from "@/components/admin/AdminExamenes";
 import { getSupabase } from "@/lib/supabase";
 import type { Categoria, Contenido } from "@/lib/tipos";
 
@@ -261,6 +262,8 @@ export function AdminGestor({ onLogout }: { onLogout: () => void }) {
           ) : null}
         </ul>
       </section>
+
+      <AdminExamenes />
 
       {form ? (
         <section className="glass border border-emerald/30 p-5">
