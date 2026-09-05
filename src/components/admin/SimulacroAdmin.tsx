@@ -10,6 +10,15 @@ import {
   Square,
   Users,
 } from "lucide-react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 import { AdminLogin } from "@/components/admin/AdminLogin";
 import { Button } from "@/components/ui/Button";
@@ -179,6 +188,18 @@ export function SimulacroAdmin() {
   const masAcertada = Object.entries(conteo)
     .filter(([, v]) => v.ok > 0)
     .sort((a, b) => b[1].ok - a[1].ok)[0];
+
+  // Datos para las gráficas: una barra por pregunta (aciertos y fallos)
+  const datosPreguntas = preguntasMatematicas.map((p) => {
+    const c = conteo[p.id] ?? { ok: 0, mal: 0 };
+    return {
+      nombre: `P${p.id}`,
+      aciertos: c.ok,
+      fallos: c.mal,
+      total: c.ok + c.mal,
+      enunciado: p.enunciado.replace(/[$\\]/g, "").slice(0, 90),
+    };
+  });
 
   const enunciadoDe = (id: number) =>
     preguntasMatematicas.find((p) => p.id === id)?.enunciado ?? "";
@@ -377,6 +398,60 @@ export function SimulacroAdmin() {
                 texto={enunciadoDe(Number(masAcertada[0]))}
               />
             ) : null}
+          </div>
+
+          <div className="mt-6 grid gap-6 lg:grid-cols-2">
+            <div>
+              <h4 className="text-sm font-semibold">
+                Aciertos por pregunta
+              </h4>
+              <p className="text-xs text-foreground/50">
+                La barra en esmeralda es la más acertada.
+              </p>
+              <div className="mt-3 h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={datosPreguntas} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-forest/10 dark:text-white/10" />
+                    <XAxis dataKey="nombre" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} className="text-foreground/50" interval={0} angle={-45} textAnchor="end" height={50} />
+                    <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} className="text-foreground/50" allowDecimals={false} />
+                    <Tooltip
+                      contentStyle={{ background: "#143a2a", border: "1px solid #2ec27e55", borderRadius: 12, color: "#fff9ef", fontSize: 12 }}
+                      formatter={(v, name) => [Number(v ?? 0), name === "aciertos" ? "Aciertos" : "Fallos"]}
+                      labelFormatter={(l, p) => {
+                        const d = p?.[0]?.payload;
+                        return d?.enunciado ? `${l} · ${d.enunciado}` : String(l);
+                      }}
+                    />
+                    <Bar dataKey="aciertos" fill="#2ec27e" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-sm font-semibold">Fallos por pregunta</h4>
+              <p className="text-xs text-foreground/50">
+                La barra en coral es la más fallada.
+              </p>
+              <div className="mt-3 h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={datosPreguntas} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-forest/10 dark:text-white/10" />
+                    <XAxis dataKey="nombre" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} className="text-foreground/50" interval={0} angle={-45} textAnchor="end" height={50} />
+                    <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} className="text-foreground/50" allowDecimals={false} />
+                    <Tooltip
+                      contentStyle={{ background: "#143a2a", border: "1px solid #ff6b5b55", borderRadius: 12, color: "#fff9ef", fontSize: 12 }}
+                      formatter={(v, name) => [Number(v ?? 0), name === "fallos" ? "Fallos" : "Aciertos"]}
+                      labelFormatter={(l, p) => {
+                        const d = p?.[0]?.payload;
+                        return d?.enunciado ? `${l} · ${d.enunciado}` : String(l);
+                      }}
+                    />
+                    <Bar dataKey="fallos" fill="#ff6b5b" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
         </section>
       ) : null}
