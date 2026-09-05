@@ -22,15 +22,18 @@ export async function habilitarSimulacro(habilitado: boolean): Promise<boolean> 
 }
 
 export async function iniciarSesion(nombre: string): Promise<string | null> {
-  const supabase = getSupabase();
-  if (!supabase) return null;
-  const { data, error } = await supabase
-    .from("simulacro_sesiones")
-    .insert({ nombre })
-    .select("id")
-    .single();
-  if (error || !data) return null;
-  return data.id;
+  try {
+    const r = await fetch("/api/simulacro/sesion", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nombre }),
+    });
+    if (!r.ok) return null;
+    const { id } = await r.json();
+    return typeof id === "string" ? id : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function actualizarProgreso(
@@ -38,16 +41,15 @@ export async function actualizarProgreso(
   respondidas: number,
   faltas: number,
 ) {
-  const supabase = getSupabase();
-  if (!supabase) return;
-  await supabase
-    .from("simulacro_sesiones")
-    .update({
-      respondidas,
-      faltas,
-      ultima_actividad: new Date().toISOString(),
-    })
-    .eq("id", sesionId);
+  try {
+    await fetch("/api/simulacro/sesion", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: sesionId, respondidas, faltas }),
+    });
+  } catch {
+    // modo local: sin seguimiento
+  }
 }
 
 export async function finalizarSesion(
@@ -57,18 +59,22 @@ export async function finalizarSesion(
   tiempoUsado: number,
   faltas: number,
 ) {
-  const supabase = getSupabase();
-  if (!supabase) return;
-  await supabase
-    .from("simulacro_sesiones")
-    .update({
-      terminado_en: new Date().toISOString(),
-      respuestas,
-      correctas: resultado.correctas,
-      puntaje: resultado.porcentaje,
-      puntaje_componente: resultado.puntajeComponente,
-      tiempo_usado: tiempoUsado,
-      faltas,
-    })
-    .eq("id", sesionId);
+  try {
+    await fetch("/api/simulacro/sesion", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: sesionId,
+        terminado_en: new Date().toISOString(),
+        respuestas,
+        correctas: resultado.correctas,
+        puntaje: resultado.porcentaje,
+        puntaje_componente: resultado.puntajeComponente,
+        tiempo_usado: tiempoUsado,
+        faltas,
+      }),
+    });
+  } catch {
+    // modo local: sin seguimiento
+  }
 }
