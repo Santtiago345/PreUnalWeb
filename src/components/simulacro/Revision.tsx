@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
+import { Grafico } from "@/components/simulacro/Grafico";
 import { Formula, M } from "@/components/simulacro/Math";
 import { preguntasMatematicas as preguntas } from "@/data/simulacro";
 import type { PreguntaSimulacro } from "@/data/simulacro";
@@ -72,6 +73,8 @@ function TarjetaRevisada({
           <p className="mt-2 font-medium leading-relaxed">
             <M>{pregunta.enunciado}</M>
           </p>
+
+          {pregunta.grafico ? <Grafico {...pregunta.grafico} /> : null}
 
           {!correcta ? (
             <div className="mt-3 space-y-1 text-sm">

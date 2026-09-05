@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, Clock, Flag } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
+import { Grafico } from "@/components/simulacro/Grafico";
 import { M } from "@/components/simulacro/Math";
 import {
   preguntasMatematicas,
@@ -206,6 +207,8 @@ export function ExamenVista({
               <p className="mt-3 text-base font-medium leading-relaxed">
                 <M>{pregunta.enunciado}</M>
               </p>
+
+              {pregunta.grafico ? <Grafico {...pregunta.grafico} /> : null}
 
               <div className="mt-4 grid gap-2">
                 {pregunta.opciones.map((opcion, i) => {
