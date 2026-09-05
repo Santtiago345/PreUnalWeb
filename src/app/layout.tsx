@@ -94,6 +94,10 @@ export default function RootLayout({
             {children}
           </main>
           <Footer />
+          <div
+            aria-hidden
+            className="h-20 shrink-0 pb-[env(safe-area-inset-bottom)] lg:hidden"
+          />
           <MobileTabBar />
         </ThemeProvider>
       </body>
