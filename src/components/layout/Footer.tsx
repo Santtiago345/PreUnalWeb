@@ -54,8 +54,19 @@ export function Footer() {
           <p>
             © {new Date().getFullYear()} {site.name} · {site.community}
           </p>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
             <p>Hecho para la comunidad, con identidad muisca.</p>
+            <p>
+              Desarrollado por{" "}
+              <Link
+                href="https://www.linkedin.com/in/santiago-neuta-3ab204219/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-foreground/70 transition-colors hover:text-emerald"
+              >
+                Santiago Neuta
+              </Link>
+            </p>
             <Link
               href="/admin"
               className="transition-colors hover:text-emerald"
