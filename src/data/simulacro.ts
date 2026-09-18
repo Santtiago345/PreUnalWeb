@@ -14,7 +14,35 @@ export type PreguntaSimulacro = {
   formula?: string;
   grafico?: GraficoPolinomio;
   afirmaciones?: string[];
+  /** Ruta pública de la imagen del ejercicio (p. ej. análisis de la imagen). */
+  imagen?: string;
+  /** Texto alternativo para accesibilidad cuando hay imagen. */
+  imagenAlt?: string;
+  /** Id de la lectura compartida (comprensión lectora). */
+  lecturaId?: string;
 };
+
+export type LecturaSimulacro = {
+  id: string;
+  titulo: string;
+  parrafos: string[];
+  fuente?: string;
+};
+
+export type SimulacroDef = {
+  id: string;
+  titulo: string;
+  descripcion: string;
+  componente: string;
+  totalPreguntas: number;
+  segundosPorPregunta: number;
+  minutosExtra: number;
+  preguntas: PreguntaSimulacro[];
+  lecturas?: LecturaSimulacro[];
+};
+
+export const tiempoTotalDe = (s: SimulacroDef) =>
+  s.totalPreguntas * s.segundosPorPregunta + s.minutosExtra * 60;
 
 export type SimulacroConfig = {
   titulo: string;

@@ -18,7 +18,8 @@ export default function SimulacrosPage() {
         </h1>
         <p className="mt-4 max-w-3xl text-lg leading-relaxed text-foreground/70">
           Pruebas cronometradas tipo examen de admisión con calificación por el
-          mismo modelo de la UNAL. Empezamos con el componente de Matemáticas.
+          mismo modelo de la UNAL. Elige entre el componente de Matemáticas y
+          el Simulacro General (análisis de la imagen + comprensión lectora).
         </p>
       </Reveal>
 

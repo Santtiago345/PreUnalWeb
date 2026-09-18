@@ -10,9 +10,14 @@ import {
 
 import { Button } from "@/components/ui/Button";
 import { Grafico } from "@/components/simulacro/Grafico";
+import { ImagenPregunta } from "@/components/simulacro/ImagenPregunta";
+import { LecturaBox } from "@/components/simulacro/LecturaBox";
 import { Formula, M } from "@/components/simulacro/Math";
-import { preguntasMatematicas as preguntas } from "@/data/simulacro";
-import type { PreguntaSimulacro } from "@/data/simulacro";
+import type {
+  LecturaSimulacro,
+  PreguntaSimulacro,
+  SimulacroDef,
+} from "@/data/simulacro";
 import type { Respuesta, ResultadoSimulacro } from "@/lib/calificacion";
 import { cn } from "@/lib/utils";
 
@@ -21,9 +26,11 @@ const letraDe = (i: number) => String.fromCharCode(65 + i);
 function TarjetaRevisada({
   pregunta,
   respuesta,
+  lectura,
 }: {
   pregunta: PreguntaSimulacro;
   respuesta: Respuesta;
+  lectura?: LecturaSimulacro;
 }) {
   const [verMas, setVerMas] = useState(false);
   const correcta = respuesta.correcta;
@@ -89,21 +96,32 @@ function TarjetaRevisada({
 
           {pregunta.grafico ? <Grafico {...pregunta.grafico} /> : null}
 
+          {pregunta.imagen ? (
+            <ImagenPregunta
+              src={pregunta.imagen}
+              alt={pregunta.imagenAlt ?? `Imagen del ejercicio ${pregunta.id}`}
+            />
+          ) : null}
+
+          {lectura ? <LecturaBox lectura={lectura} /> : null}
+
           {!correcta ? (
             <div className="mt-3 space-y-1 text-sm">
               <p className="text-foreground/60">
                 Tu respuesta:{" "}
                 <span className="font-semibold text-coral">
                   {seleccion >= 0
-                    ? `${letraDe(seleccion)}. ${pregunta.opciones[seleccion]}`
+                    ? `${letraDe(seleccion)}${pregunta.imagen ? "" : `. ${pregunta.opciones[seleccion]}`}`
                     : "Sin responder"}
                 </span>
               </p>
               <p className="text-foreground/60">
                 Respuesta correcta:{" "}
                 <span className="font-semibold text-emerald">
-                  {letraDe(pregunta.correcta)}.{" "}
-                  {pregunta.opciones[pregunta.correcta]}
+                  {letraDe(pregunta.correcta)}
+                  {pregunta.imagen
+                    ? ""
+                    : `. ${pregunta.opciones[pregunta.correcta]}`}
                 </span>
               </p>
             </div>
@@ -111,8 +129,10 @@ function TarjetaRevisada({
             <p className="mt-3 text-sm text-emerald">
               Respondiste correctamente:{" "}
               <span className="font-semibold">
-                {letraDe(pregunta.correcta)}.{" "}
-                {pregunta.opciones[pregunta.correcta]}
+                {letraDe(pregunta.correcta)}
+                {pregunta.imagen
+                  ? ""
+                  : `. ${pregunta.opciones[pregunta.correcta]}`}
               </span>
             </p>
           )}
@@ -155,13 +175,20 @@ export function Revision({
   respuestas,
   resultado,
   nombre,
+  simulacro,
   onReiniciar,
 }: {
   respuestas: Respuesta[];
   resultado: ResultadoSimulacro;
   nombre: string;
+  simulacro: SimulacroDef;
   onReiniciar: () => void;
 }) {
+  const lecturasPorId = new Map(
+    (simulacro.lecturas ?? []).map((l) => [l.id, l]),
+  );
+  const porRespuesta = new Map(respuestas.map((r) => [r.pregunta, r]));
+
   return (
     <div className="mx-auto max-w-3xl pb-8">
       <div className="glass-strong p-6 text-center">
@@ -205,9 +232,20 @@ export function Revision({
       </div>
 
       <div className="mt-6 space-y-4">
-        {preguntas.map((p) => (
-          <TarjetaRevisada key={p.id} pregunta={p} respuesta={respuestas[p.id - 1]} />
-        ))}
+        {simulacro.preguntas.map((p) => {
+          const r = porRespuesta.get(p.id);
+          if (!r) return null;
+          return (
+            <TarjetaRevisada
+              key={p.id}
+              pregunta={p}
+              respuesta={r}
+              lectura={
+                p.lecturaId ? lecturasPorId.get(p.lecturaId) : undefined
+              }
+            />
+          );
+        })}
       </div>
     </div>
   );

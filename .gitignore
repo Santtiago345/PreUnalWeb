@@ -29,6 +29,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# cuadernillos fuente (material de trabajo, no distribuir)
+/carta-respuestas (1).pdf
+/imagen2 (1).pdf
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

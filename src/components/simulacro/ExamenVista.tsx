@@ -1,15 +1,17 @@
 "use client";
 
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Clock, Flag } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
 import { Grafico } from "@/components/simulacro/Grafico";
+import { ImagenPregunta } from "@/components/simulacro/ImagenPregunta";
+import { LecturaBox } from "@/components/simulacro/LecturaBox";
 import { M } from "@/components/simulacro/Math";
-import {
-  preguntasMatematicas,
-  TIEMPO_TOTAL_SEGUNDOS,
-  type PreguntaSimulacro,
+import type {
+  LecturaSimulacro,
+  PreguntaSimulacro,
+  SimulacroDef,
 } from "@/data/simulacro";
 import type { Respuesta } from "@/lib/calificacion";
 import { actualizarProgreso } from "@/lib/simulacroSesion";
@@ -23,16 +25,20 @@ function formatearTiempo(segundos: number) {
 
 /**
  * Tarjeta de pregunta memorizada: solo se re-renderiza cuando cambia SU
- * respuesta seleccionada. Así el tic del cronómetro no re-renderiza las 25.
+ * respuesta seleccionada. Así el tic del cronómetro no re-renderiza todas.
  */
 const PreguntaCard = memo(function PreguntaCard({
   pregunta,
   seleccionada,
   onElegir,
+  lectura,
+  lecturaAbierta,
 }: {
   pregunta: PreguntaSimulacro;
   seleccionada: number | undefined;
   onElegir: (pregunta: number, opcion: number) => void;
+  lectura?: LecturaSimulacro;
+  lecturaAbierta?: boolean;
 }) {
   return (
     <article
@@ -77,10 +83,28 @@ const PreguntaCard = memo(function PreguntaCard({
 
       {pregunta.grafico ? <Grafico {...pregunta.grafico} /> : null}
 
-      <div className="mt-4 grid gap-2">
+      {pregunta.imagen ? (
+        <ImagenPregunta
+          src={pregunta.imagen}
+          alt={pregunta.imagenAlt ?? `Imagen del ejercicio ${pregunta.id}`}
+        />
+      ) : null}
+
+      {lectura ? (
+        <LecturaBox lectura={lectura} abierta={lecturaAbierta} />
+      ) : null}
+
+      <div
+        className={cn(
+          "mt-4 grid gap-2",
+          pregunta.imagen !== undefined && "grid-cols-2 sm:grid-cols-4",
+        )}
+      >
         {pregunta.opciones.map((opcion, i) => {
           const activa = seleccionada === i;
           const letra = String.fromCharCode(65 + i);
+          // En ejercicios de imagen las opciones A–D ya van en la imagen.
+          const soloLetra = pregunta.imagen !== undefined;
           return (
             <button
               key={i}
@@ -89,6 +113,7 @@ const PreguntaCard = memo(function PreguntaCard({
               aria-pressed={activa}
               className={cn(
                 "flex items-start gap-3 rounded-xl border px-4 py-3 text-left text-sm transition-colors",
+                soloLetra && "items-center justify-center px-2",
                 activa
                   ? "border-emerald bg-emerald/10 font-medium"
                   : "border-forest/10 hover:border-emerald/40 dark:border-white/10",
@@ -105,7 +130,11 @@ const PreguntaCard = memo(function PreguntaCard({
                 {letra}
               </span>
               <span className="leading-relaxed">
-                <M>{opcion}</M>
+                {soloLetra ? (
+                  <span className="sr-only">Opción {letra}</span>
+                ) : (
+                  <M>{opcion}</M>
+                )}
               </span>
             </button>
           );
@@ -122,12 +151,14 @@ const PreguntaCard = memo(function PreguntaCard({
  */
 const Cronometro = memo(function Cronometro({
   restanteRef,
+  totalSegundos,
   onAgotado,
 }: {
   restanteRef: React.MutableRefObject<number>;
+  totalSegundos: number;
   onAgotado: () => void;
 }) {
-  const [restante, setRestante] = useState(TIEMPO_TOTAL_SEGUNDOS);
+  const [restante, setRestante] = useState(totalSegundos);
   const agotado = useRef(false);
 
   useEffect(() => {
@@ -161,23 +192,44 @@ const Cronometro = memo(function Cronometro({
 export function ExamenVista({
   nombre,
   sesionId,
+  simulacro,
   onFinalizar,
 }: {
   nombre: string;
   sesionId: string | null;
+  simulacro: SimulacroDef;
   onFinalizar: (
     respuestas: Respuesta[],
     tiempoUsado: number,
     faltas: number,
   ) => void;
 }) {
+  const preguntas = simulacro.preguntas;
+  const tiempoTotal = useMemo(
+    () =>
+      simulacro.totalPreguntas * simulacro.segundosPorPregunta +
+      simulacro.minutosExtra * 60,
+    [simulacro],
+  );
+  const lecturasPorId = useMemo(
+    () => new Map((simulacro.lecturas ?? []).map((l) => [l.id, l])),
+    [simulacro],
+  );
+  // La lectura se muestra abierta solo en la primera pregunta que la usa.
+  const aperturaLectura = useMemo(() => {
+    const mapa = new Map<string, number>();
+    for (const p of preguntas) {
+      if (p.lecturaId && !mapa.has(p.lecturaId)) mapa.set(p.lecturaId, p.id);
+    }
+    return mapa;
+  }, [preguntas]);
   const [respuestas, setRespuestas] = useState<Record<number, number>>({});
   const [faltas, setFaltas] = useState(0);
   const [advertencia, setAdvertencia] = useState(false);
   const finalizado = useRef(false);
   const respuestasRef = useRef(respuestas);
   const faltasRef = useRef(faltas);
-  const restanteRef = useRef(TIEMPO_TOTAL_SEGUNDOS);
+  const restanteRef = useRef(tiempoTotal);
 
   // Mantiene las refs sincronizadas sin tocar el DOM (solo en effects)
   useEffect(() => {
@@ -188,14 +240,14 @@ export function ExamenVista({
   }, [faltas]);
 
   const respondidas = Object.keys(respuestas).length;
-  const total = preguntasMatematicas.length;
+  const total = preguntas.length;
   const faltan = total - respondidas;
 
   const finalizar = useCallback(
     (tiempoUsado: number) => {
       if (finalizado.current) return;
       finalizado.current = true;
-      const r: Respuesta[] = preguntasMatematicas.map((p) => {
+      const r: Respuesta[] = preguntas.map((p) => {
         const sel = respuestasRef.current[p.id];
         return {
           pregunta: p.id,
@@ -205,12 +257,12 @@ export function ExamenVista({
       });
       onFinalizar(r, tiempoUsado, faltasRef.current);
     },
-    [onFinalizar],
+    [onFinalizar, preguntas],
   );
 
   const onAgotado = useCallback(
-    () => finalizar(TIEMPO_TOTAL_SEGUNDOS),
-    [finalizar],
+    () => finalizar(tiempoTotal),
+    [finalizar, tiempoTotal],
   );
 
   // Anti-trampa: detecta cuando el estudiante sale de la pestaña
@@ -242,7 +294,7 @@ export function ExamenVista({
   );
 
   const terminar = () => {
-    finalizar(TIEMPO_TOTAL_SEGUNDOS - restanteRef.current);
+    finalizar(tiempoTotal - restanteRef.current);
   };
 
   return (
@@ -257,7 +309,11 @@ export function ExamenVista({
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Cronometro restanteRef={restanteRef} onAgotado={onAgotado} />
+            <Cronometro
+              restanteRef={restanteRef}
+              totalSegundos={tiempoTotal}
+              onAgotado={onAgotado}
+            />
             <Button
               variant="primary"
               size="sm"
@@ -305,12 +361,21 @@ export function ExamenVista({
 
       {/* Preguntas */}
       <div className="mx-auto max-w-3xl space-y-6">
-        {preguntasMatematicas.map((pregunta) => (
+        {preguntas.map((pregunta) => (
           <PreguntaCard
             key={pregunta.id}
             pregunta={pregunta}
             seleccionada={respuestas[pregunta.id]}
             onElegir={elegir}
+            lectura={
+              pregunta.lecturaId
+                ? lecturasPorId.get(pregunta.lecturaId)
+                : undefined
+            }
+            lecturaAbierta={
+              pregunta.lecturaId !== undefined &&
+              aperturaLectura.get(pregunta.lecturaId) === pregunta.id
+            }
           />
         ))}
 

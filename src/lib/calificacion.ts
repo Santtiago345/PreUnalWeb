@@ -1,4 +1,8 @@
-import { dificultadDe, preguntasMatematicas } from "@/data/simulacro";
+import {
+  dificultadDe,
+  preguntasMatematicas,
+  type PreguntaSimulacro,
+} from "@/data/simulacro";
 
 export type Respuesta = {
   pregunta: number;
@@ -61,20 +65,20 @@ export function penalizacionPorFaltas(faltas: number): number {
 }
 
 /**
- * Puntaje del componente de Matemáticas en la escala de la UNAL
- * (media 10, desviación 1). El valor reportado es 10 + θ, como hace la
- * Universidad al estandarizar la habilidad del componente. Luego se aplica
- * la penalización por salidas de pestaña.
+ * Puntaje del componente en la escala de la UNAL (media 10, desviación 1).
+ * Recibe el banco de preguntas del simulacro presentado para ponderar por
+ * dificultad; por defecto usa el de Matemáticas (compatibilidad).
  */
 export function calcularResultado(
   respuestas: Respuesta[],
   faltas = 0,
+  preguntas: PreguntaSimulacro[] = preguntasMatematicas,
 ): ResultadoSimulacro {
   const correctas = respuestas.filter((r) => r.correcta).length;
-  const total = preguntasMatematicas.length;
+  const total = preguntas.length;
 
   const items = respuestas.map((r) => {
-    const pregunta = preguntasMatematicas.find((p) => p.id === r.pregunta);
+    const pregunta = preguntas.find((p) => p.id === r.pregunta);
     return {
       correcta: r.correcta,
       b: pregunta ? dificultadDe(pregunta.nivel) : 0,

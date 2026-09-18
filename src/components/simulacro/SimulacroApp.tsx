@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
+  BookOpen,
   Calculator,
   ClipboardList,
   Clock,
   Play,
+  Shapes,
   User,
 } from "lucide-react";
 
@@ -14,16 +16,15 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ExamenVista } from "@/components/simulacro/ExamenVista";
 import { Revision } from "@/components/simulacro/Revision";
-import {
-  configSimulacro,
-  TIEMPO_TOTAL_SEGUNDOS,
-} from "@/data/simulacro";
+import { SIMULACROS, simulacroPorId } from "@/data/simulacros";
+import type { SimulacroDef } from "@/data/simulacro";
 import { calcularResultado, type Respuesta, type ResultadoSimulacro } from "@/lib/calificacion";
 import {
   estaHabilitado,
   finalizarSesion,
   iniciarSesion,
 } from "@/lib/simulacroSesion";
+import { cn } from "@/lib/utils";
 
 function formatoTiempoTotal(seg: number) {
   const m = Math.floor(seg / 60);
@@ -31,8 +32,21 @@ function formatoTiempoTotal(seg: number) {
   return `${m} min${s ? ` ${s} s` : ""}`;
 }
 
+function tiempoDe(s: SimulacroDef) {
+  return (
+    s.totalPreguntas * s.segundosPorPregunta + s.minutosExtra * 60
+  );
+}
+
+const ICONOS: Record<string, ReactNode> = {
+  matematicas: <Calculator className="h-5 w-5" />,
+  general: <Shapes className="h-5 w-5" />,
+};
+
 export function SimulacroApp() {
   const [fase, setFase] = useState<"intro" | "examen" | "revision">("intro");
+  const [simId, setSimId] = useState(SIMULACROS[0].id);
+  const simulacro = simulacroPorId(simId);
   const [nombre, setNombre] = useState("");
   const [habilitado, setHabilitado] = useState(true);
   const [cargandoConfig, setCargandoConfig] = useState(true);
@@ -64,7 +78,11 @@ export function SimulacroApp() {
     tiempoUsado: number,
     faltas: number,
   ) => {
-    const res = calcularResultado(respuestasFinales, faltas);
+    const res = calcularResultado(
+      respuestasFinales,
+      faltas,
+      simulacro.preguntas,
+    );
     if (sesionId) {
       await finalizarSesion(sesionId, respuestasFinales, res, tiempoUsado, faltas);
     }
@@ -86,6 +104,7 @@ export function SimulacroApp() {
       <ExamenVista
         nombre={nombre}
         sesionId={sesionId}
+        simulacro={simulacro}
         onFinalizar={onFinalizar}
       />
     );
@@ -97,6 +116,7 @@ export function SimulacroApp() {
         nombre={nombre}
         respuestas={respuestas}
         resultado={resultado}
+        simulacro={simulacro}
         onReiniciar={reiniciar}
       />
     );
@@ -105,27 +125,67 @@ export function SimulacroApp() {
   return (
     <div className="mx-auto max-w-3xl">
       <div className="glass-strong p-6 sm:p-8">
-        <Badge>Componente · Matemáticas</Badge>
+        <Badge>Simulacros disponibles</Badge>
         <h2 className="mt-3 font-display text-3xl font-bold tracking-tight">
-          {configSimulacro.titulo}
+          Elige tu simulacro
         </h2>
-        <p className="mt-3 leading-relaxed text-foreground/70">
-          {configSimulacro.descripcion}
+
+        <div
+          className="mt-5 grid gap-3 sm:grid-cols-2"
+          role="radiogroup"
+          aria-label="Simulacro"
+        >
+          {SIMULACROS.map((s) => {
+            const activo = s.id === simId;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                role="radio"
+                aria-checked={activo}
+                onClick={() => setSimId(s.id)}
+                className={cn(
+                  "rounded-xl border p-4 text-left transition-colors",
+                  activo
+                    ? "border-emerald bg-emerald/10"
+                    : "border-forest/10 hover:border-emerald/40 dark:border-white/10",
+                )}
+              >
+                <span className="flex items-center gap-2 text-emerald">
+                  {ICONOS[s.id] ?? <ClipboardList className="h-5 w-5" />}
+                  <span className="text-xs font-semibold uppercase tracking-wider">
+                    {s.componente}
+                  </span>
+                </span>
+                <span className="mt-2 block font-display text-lg font-bold">
+                  {s.titulo}
+                </span>
+                <span className="mt-1 block text-xs leading-relaxed text-foreground/60">
+                  {s.totalPreguntas} preguntas ·{" "}
+                  {formatoTiempoTotal(tiempoDe(s))}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <p className="mt-4 leading-relaxed text-foreground/70">
+          {simulacro.descripcion}
         </p>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
           <InfoItem
             icon={<ClipboardList className="h-5 w-5" />}
-            titulo={`${configSimulacro.totalPreguntas} preguntas`}
+            titulo={`${simulacro.totalPreguntas} preguntas`}
             texto="Opción múltiple con única respuesta, como la prueba oficial."
           />
           <InfoItem
             icon={<Clock className="h-5 w-5" />}
-            titulo={formatoTiempoTotal(TIEMPO_TOTAL_SEGUNDOS)}
+            titulo={formatoTiempoTotal(tiempoDe(simulacro))}
             texto="1 min 45 s por pregunta + 5 minutos extra."
           />
           <InfoItem
-            icon={<Calculator className="h-5 w-5" />}
+            icon={<BookOpen className="h-5 w-5" />}
             titulo="Puntaje del componente"
             texto="Modelo de Rasch (TRI), escala 10±1, igual que la UNAL."
           />
