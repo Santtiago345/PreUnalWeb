@@ -15,24 +15,27 @@ import type { Respuesta } from "@/lib/calificacion";
 // Claves entregadas por el docente (cuadernillo oficial UNAL).
 // Imagen: preguntas 8–18 → A,A,C,C,C,A,C,D,B,B,A.
 // Lectura: preguntas 17–31 → B,D,C,B,C,A,D,B,A,D,A,D,B,C,A.
+// Ciencias (cuadernillo 46–74) y Matemáticas nuevas (29,42,43), verificadas.
 const CLAVES_ESPERADAS = [
   0, 0, 2, 2, 2, 0, 2, 3, 1, 1, 0,
   1, 3, 2, 1, 2, 0, 3, 1, 0, 3, 0, 3, 1, 2, 0,
+  1, 2, 0, 3, 3, 1, 2, 0, 1, 3, 2, 3, 0, 1, 2, 0, 1, 3, 2, 0, 2, 3, 1, 0, 2, 0, 3, 2, 1,
+  2, 1, 2,
 ];
 
 describe("Banco del Simulacro General", () => {
-  it("tiene 26 preguntas consistentes con su configuración", () => {
-    expect(preguntasGeneral.length).toBe(26);
+  it("tiene 58 preguntas consistentes con su configuración", () => {
+    expect(preguntasGeneral.length).toBe(58);
     expect(preguntasGeneral.length).toBe(
       configSimulacroGeneral.totalPreguntas,
     );
   });
 
-  it("ids únicos y consecutivos 1..26", () => {
+  it("ids únicos y consecutivos 1..58", () => {
     const ids = preguntasGeneral.map((p) => p.id);
-    expect(new Set(ids).size).toBe(26);
+    expect(new Set(ids).size).toBe(58);
     expect(Math.min(...ids)).toBe(1);
-    expect(Math.max(...ids)).toBe(26);
+    expect(Math.max(...ids)).toBe(58);
   });
 
   it("las claves coinciden con las entregadas (imagen 8–18 + lectura 17–31)", () => {
@@ -93,9 +96,9 @@ describe("Banco del Simulacro General", () => {
     }
   });
 
-  it("tiempo total = 26 × 105 s + 5 min extra", () => {
-    expect(TIEMPO_GENERAL_SEGUNDOS).toBe(26 * 105 + 5 * 60);
-    expect(TIEMPO_GENERAL_SEGUNDOS).toBe(3030);
+  it("tiempo total = 58 × 105 s + 5 min extra", () => {
+    expect(TIEMPO_GENERAL_SEGUNDOS).toBe(58 * 105 + 5 * 60);
+    expect(TIEMPO_GENERAL_SEGUNDOS).toBe(6390);
   });
 });
 
@@ -105,7 +108,7 @@ describe("Registro de simulacros", () => {
       "matematicas",
       "general",
     ]);
-    expect(simulacroPorId("general").preguntas.length).toBe(26);
+    expect(simulacroPorId("general").preguntas.length).toBe(58);
     expect(simulacroPorId("matematicas").preguntas.length).toBe(25);
     expect(simulacroPorId("inexistente").id).toBe("matematicas");
   });
@@ -120,18 +123,18 @@ describe("Calificación con banco general", () => {
     }));
   }
 
-  it("todas correctas → theta 3 y total 26", () => {
+  it("todas correctas → theta 3 y total 58", () => {
     const r = calcularResultado(respuestas(true), 0, preguntasGeneral);
-    expect(r.correctas).toBe(26);
-    expect(r.total).toBe(26);
+    expect(r.correctas).toBe(58);
+    expect(r.total).toBe(58);
     expect(r.theta).toBe(3);
     expect(r.puntajeComponente).toBe(13);
   });
 
-  it("ninguna correcta → theta -3 y total 26", () => {
+  it("ninguna correcta → theta -3 y total 58", () => {
     const r = calcularResultado(respuestas(false), 0, preguntasGeneral);
     expect(r.correctas).toBe(0);
-    expect(r.total).toBe(26);
+    expect(r.total).toBe(58);
     expect(r.theta).toBe(-3);
   });
 
