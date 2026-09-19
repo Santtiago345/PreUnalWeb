@@ -25,6 +25,22 @@ function renderMath(tex: string, display: boolean) {
   return html;
 }
 
+/** Convierte **texto** en negrita dentro de un fragmento de texto plano. */
+function TextoConNegrita({ texto }: { texto: string }) {
+  const partes = texto.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
+  return (
+    <>
+      {partes.map((p, i) =>
+        p.startsWith("**") && p.endsWith("**") ? (
+          <strong key={i}>{p.slice(2, -2)}</strong>
+        ) : (
+          <Fragment key={i}>{p}</Fragment>
+        ),
+      )}
+    </>
+  );
+}
+
 export function M({ children }: { children: string }) {
   const partes = children.split(/(\$\$[^$]+\$\$|\$[^$]+\$)/g).filter(Boolean);
   return (
@@ -50,7 +66,7 @@ export function M({ children }: { children: string }) {
             />
           );
         }
-        return <Fragment key={i}>{parte}</Fragment>;
+        return <TextoConNegrita key={i} texto={parte} />;
       })}
     </>
   );

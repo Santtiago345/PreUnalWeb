@@ -305,7 +305,7 @@ export const preguntasGeneral: PreguntaSimulacro[] = [
     tema: "Comprensión lectora",
     nivel: "media",
     enunciado:
-      "En el enunciado El neófito probó el pan en el camino, y habiéndole gustado le comió todo se encuentra el fenómeno del leísmo. Este fenómeno no es usual en nuestro español, pues somos loístas y decimos, por ejemplo, (se) lo comió todo. Con base en el citado enunciado es correcto afirmar que en el leísmo, el pronombre le designa",
+      "En el enunciado **«El neófito probó el pan en el camino, y habiéndole gustado le comió todo»** se encuentra el fenómeno del leísmo. Este fenómeno no es usual en nuestro español, pues somos loístas y decimos, por ejemplo, **(se) lo comió todo**. Con base en el citado enunciado es correcto afirmar que en el leísmo, el pronombre **le** designa",
     opciones: [
       "un objeto que padece el efecto de una acción.",
       "una persona que intencionalmente realiza una acción.",
@@ -380,7 +380,7 @@ export const preguntasGeneral: PreguntaSimulacro[] = [
     tema: "Comprensión lectora",
     nivel: "media",
     enunciado:
-      "En español moderno para referirse al interlocutor se usa el pronombre Usted. En el enunciado Yo os confieso, padre, la primera carta os dijo la verdad, la forma pronominal en negrilla puede ser sustituida por",
+      "En español moderno para referirse al interlocutor se usa el pronombre Usted. En el enunciado **«Yo os confieso, padre, la primera carta os dijo la verdad»**, la forma pronominal en negrilla **os** puede ser sustituida por",
     opciones: ["me", "lo", "te", "le"],
     correcta: 3,
     explicacion:
