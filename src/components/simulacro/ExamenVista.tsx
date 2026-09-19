@@ -15,6 +15,7 @@ import type {
 } from "@/data/simulacro";
 import type { Respuesta } from "@/lib/calificacion";
 import { actualizarProgreso } from "@/lib/simulacroSesion";
+import { guardarProgreso } from "@/lib/progresoSimulacro";
 import { cn } from "@/lib/utils";
 
 function formatearTiempo(segundos: number) {
@@ -151,14 +152,14 @@ const PreguntaCard = memo(function PreguntaCard({
  */
 const Cronometro = memo(function Cronometro({
   restanteRef,
-  totalSegundos,
+  segundosIniciales,
   onAgotado,
 }: {
   restanteRef: React.MutableRefObject<number>;
-  totalSegundos: number;
+  segundosIniciales: number;
   onAgotado: () => void;
 }) {
-  const [restante, setRestante] = useState(totalSegundos);
+  const [restante, setRestante] = useState(segundosIniciales);
   const agotado = useRef(false);
 
   useEffect(() => {
@@ -194,6 +195,7 @@ export function ExamenVista({
   sesionId,
   simulacro,
   onFinalizar,
+  estadoInicial,
 }: {
   nombre: string;
   sesionId: string | null;
@@ -203,6 +205,12 @@ export function ExamenVista({
     tiempoUsado: number,
     faltas: number,
   ) => void;
+  estadoInicial: {
+    respuestas: Record<number, number>;
+    faltas: number;
+    finTimestamp: number;
+    segundosIniciales: number;
+  };
 }) {
   const preguntas = simulacro.preguntas;
   const tiempoTotal = useMemo(
@@ -223,13 +231,15 @@ export function ExamenVista({
     }
     return mapa;
   }, [preguntas]);
-  const [respuestas, setRespuestas] = useState<Record<number, number>>({});
-  const [faltas, setFaltas] = useState(0);
+  const [respuestas, setRespuestas] = useState(estadoInicial.respuestas);
+  const [faltas, setFaltas] = useState(estadoInicial.faltas);
   const [advertencia, setAdvertencia] = useState(false);
   const finalizado = useRef(false);
   const respuestasRef = useRef(respuestas);
   const faltasRef = useRef(faltas);
-  const restanteRef = useRef(tiempoTotal);
+  const [finTimestamp] = useState(estadoInicial.finTimestamp);
+  const [segundosIniciales] = useState(estadoInicial.segundosIniciales);
+  const restanteRef = useRef(segundosIniciales);
 
   // Mantiene las refs sincronizadas sin tocar el DOM (solo en effects)
   useEffect(() => {
@@ -238,6 +248,49 @@ export function ExamenVista({
   useEffect(() => {
     faltasRef.current = faltas;
   }, [faltas]);
+
+  // Autoguardado local: persiste respuestas/faltas/tiempo ante errores o salidas
+  useEffect(() => {
+    guardarProgreso({
+      simulacroId: simulacro.id,
+      nombre,
+      sesionId,
+      respuestas,
+      faltas,
+      finTimestamp,
+      guardadoEn: Date.now(),
+    });
+  }, [simulacro.id, nombre, sesionId, respuestas, faltas, finTimestamp]);
+
+  // Guarda también al recargar/cerrar la pestaña
+  useEffect(() => {
+    const alSalir = () => {
+      guardarProgreso({
+        simulacroId: simulacro.id,
+        nombre,
+        sesionId,
+        respuestas: respuestasRef.current,
+        faltas: faltasRef.current,
+        finTimestamp,
+        guardadoEn: Date.now(),
+      });
+    };
+    window.addEventListener("beforeunload", alSalir);
+    return () => window.removeEventListener("beforeunload", alSalir);
+  }, [simulacro.id, nombre, sesionId, finTimestamp]);
+
+  // Al reanudar, refresca la actividad en el servidor para el panel en vivo
+  useEffect(() => {
+    if (estadoInicial && sesionId) {
+      void actualizarProgreso(
+        sesionId,
+        Object.keys(estadoInicial.respuestas).length,
+        estadoInicial.faltas,
+      );
+    }
+    // solo al montar
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const respondidas = Object.keys(respuestas).length;
   const total = preguntas.length;
@@ -311,7 +364,7 @@ export function ExamenVista({
           <div className="flex items-center gap-3">
             <Cronometro
               restanteRef={restanteRef}
-              totalSegundos={tiempoTotal}
+              segundosIniciales={segundosIniciales}
               onAgotado={onAgotado}
             />
             <Button

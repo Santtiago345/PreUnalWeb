@@ -7,6 +7,7 @@ import {
   Calculator,
   ClipboardList,
   Clock,
+  History,
   Play,
   Shapes,
   User,
@@ -24,6 +25,14 @@ import {
   finalizarSesion,
   iniciarSesion,
 } from "@/lib/simulacroSesion";
+import {
+  borrarProgreso,
+  cargarProgreso,
+  estadoInicialDesdeGuardado,
+  estadoInicialFresco,
+  type EstadoInicialExamen,
+  type ProgresoGuardado,
+} from "@/lib/progresoSimulacro";
 import { cn } from "@/lib/utils";
 
 function formatoTiempoTotal(seg: number) {
@@ -54,6 +63,9 @@ export function SimulacroApp() {
   const [resultado, setResultado] = useState<ResultadoSimulacro | null>(null);
   const [respuestas, setRespuestas] = useState<Respuesta[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [guardado, setGuardado] = useState<ProgresoGuardado | null>(null);
+  const [inicioRecuperado, setInicioRecuperado] =
+    useState<EstadoInicialExamen | null>(null);
 
   useEffect(() => {
     void estaHabilitado().then((h) => {
@@ -61,6 +73,19 @@ export function SimulacroApp() {
       setCargandoConfig(false);
     });
   }, []);
+
+  // Busca un progreso guardado para ofrecer continuarlo
+  useEffect(() => {
+    const g = cargarProgreso(simId);
+    if (g && g.finTimestamp > Date.now()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setGuardado(g);
+    } else {
+      if (g) borrarProgreso(simId);
+      setGuardado(null);
+    }
+    setInicioRecuperado(null);
+  }, [simId]);
 
   const empezar = async () => {
     if (!nombre.trim()) {
@@ -70,7 +95,24 @@ export function SimulacroApp() {
     setError(null);
     const id = await iniciarSesion(nombre.trim());
     setSesionId(id);
+    setInicioRecuperado(estadoInicialFresco(tiempoDe(simulacro)));
+    setGuardado(null);
     setFase("examen");
+  };
+
+  const continuarGuardado = () => {
+    if (!guardado) return;
+    setNombre(guardado.nombre);
+    setSesionId(guardado.sesionId);
+    setInicioRecuperado(estadoInicialDesdeGuardado(guardado));
+    setGuardado(null);
+    setFase("examen");
+  };
+
+  const descartarGuardado = () => {
+    borrarProgreso(simId);
+    setGuardado(null);
+    setInicioRecuperado(null);
   };
 
   const onFinalizar = async (
@@ -86,6 +128,9 @@ export function SimulacroApp() {
     if (sesionId) {
       await finalizarSesion(sesionId, respuestasFinales, res, tiempoUsado, faltas);
     }
+    borrarProgreso(simulacro.id);
+    setGuardado(null);
+    setInicioRecuperado(null);
     setRespuestas(respuestasFinales);
     setResultado(res);
     setFase("revision");
@@ -97,15 +142,17 @@ export function SimulacroApp() {
     setResultado(null);
     setRespuestas([]);
     setSesionId(null);
+    setInicioRecuperado(null);
   };
 
-  if (fase === "examen") {
+  if (fase === "examen" && inicioRecuperado) {
     return (
       <ExamenVista
         nombre={nombre}
         sesionId={sesionId}
         simulacro={simulacro}
         onFinalizar={onFinalizar}
+        estadoInicial={inicioRecuperado}
       />
     );
   }
@@ -172,6 +219,28 @@ export function SimulacroApp() {
         <p className="mt-4 leading-relaxed text-foreground/70">
           {simulacro.descripcion}
         </p>
+
+        {guardado ? (
+          <div className="mt-6 rounded-2xl border border-ocre/30 bg-ocre/10 p-5">
+            <p className="flex items-center gap-2 text-sm font-semibold text-ocre">
+              <History className="h-4 w-4" />
+              Tienes un simulacro sin terminar
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-foreground/70">
+              {guardado.nombre} · {Object.keys(guardado.respuestas).length}/
+              {simulacro.totalPreguntas} respondidas. El cronómetro continúa
+              desde donde quedó.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Button size="md" onClick={continuarGuardado} icon={<Play className="h-4 w-4" />}>
+                Continuar donde quedé
+              </Button>
+              <Button size="md" variant="ghost" onClick={descartarGuardado}>
+                Descartar y empezar de nuevo
+              </Button>
+            </div>
+          </div>
+        ) : null}
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
           <InfoItem
