@@ -21,12 +21,15 @@ export async function habilitarSimulacro(habilitado: boolean): Promise<boolean> 
   return !error;
 }
 
-export async function iniciarSesion(nombre: string): Promise<string | null> {
+export async function iniciarSesion(
+  nombre: string,
+  tipo: string = "matematicas",
+): Promise<string | null> {
   try {
     const r = await fetch("/api/simulacro/sesion", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nombre }),
+      body: JSON.stringify({ nombre, tipo }),
     });
     if (!r.ok) return null;
     const { id } = await r.json();

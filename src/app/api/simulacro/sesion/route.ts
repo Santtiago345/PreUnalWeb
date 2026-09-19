@@ -13,15 +13,30 @@ export async function POST(req: NextRequest) {
   if (!supabase) {
     return NextResponse.json({ error: "no configurado" }, { status: 503 });
   }
-  const { nombre } = await req.json();
+  const { nombre, tipo } = await req.json();
   if (!nombre || typeof nombre !== "string" || !nombre.trim()) {
     return NextResponse.json({ error: "nombre requerido" }, { status: 400 });
   }
-  const { data, error } = await supabase
+  const tipoValido = tipo === "general" ? "general" : "matematicas";
+  const fila: Record<string, string> = {
+    nombre: nombre.trim().slice(0, 80),
+    tipo: tipoValido,
+  };
+  let { data, error } = await supabase
     .from("simulacro_sesiones")
-    .insert({ nombre: nombre.trim().slice(0, 80) })
+    .insert(fila)
     .select("id")
     .single();
+  // Compatibilidad: si la migración 0005 aún no se ejecutó (sin columna
+  // `tipo`), reintenta sin ese campo para no romper el seguimiento.
+  if (error && /tipo/i.test(error.message)) {
+    delete fila.tipo;
+    ({ data, error } = await supabase
+      .from("simulacro_sesiones")
+      .insert(fila)
+      .select("id")
+      .single());
+  }
   if (error || !data) {
     return NextResponse.json({ error: "no se pudo crear" }, { status: 500 });
   }
@@ -39,6 +54,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "id requerido" }, { status: 400 });
   }
   const permitidos = [
+    "tipo",
     "respondidas",
     "faltas",
     "terminado_en",

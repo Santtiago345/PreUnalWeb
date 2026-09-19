@@ -13,6 +13,7 @@ Guía para activar y gestionar la **Biblioteca de Preparación** y el **Panel de
 2. Pega y ejecuta el contenido de **`supabase/migrations/0001_biblioteca.sql`**.
 3. Luego ejecuta **`supabase/migrations/0002_examenes.sql`** (tabla de exámenes anteriores).
 4. Luego ejecuta **`supabase/migrations/0003_simulacro.sql`** (sesiones y configuración del simulacro).
+5. Luego ejecuta **`supabase/migrations/0005_simulacro_tipo.sql`** (columna `tipo` para distinguir Matemáticas vs General, más limpieza de sesiones de prueba/abandonadas).
    Esto crea las tablas `categorias`, `contenidos`, `examenes`, `admins`, `simulacro_config` y `simulacro_sesiones`, las políticas de seguridad (RLS) y el bucket público `biblioteca`.
 
 ## 3. Crear el usuario administrador

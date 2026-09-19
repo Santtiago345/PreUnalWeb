@@ -93,7 +93,7 @@ export function SimulacroApp() {
       return;
     }
     setError(null);
-    const id = await iniciarSesion(nombre.trim());
+    const id = await iniciarSesion(nombre.trim(), simId);
     setSesionId(id);
     setInicioRecuperado(estadoInicialFresco(tiempoDe(simulacro)));
     setGuardado(null);

@@ -24,12 +24,13 @@ import { AdminLogin } from "@/components/admin/AdminLogin";
 import { Button } from "@/components/ui/Button";
 import { getSupabase, supabaseConfigurado } from "@/lib/supabase";
 import { habilitarSimulacro } from "@/lib/simulacroSesion";
-import { preguntasMatematicas } from "@/data/simulacro";
+import { SIMULACROS, simulacroPorId } from "@/data/simulacros";
 import { cn } from "@/lib/utils";
 
 type Sesion = {
   id: string;
   nombre: string;
+  tipo?: string | null;
   iniciado_en: string;
   ultima_actividad: string;
   respondidas: number;
@@ -42,6 +43,24 @@ type Sesion = {
   tiempo_usado: number | null;
 };
 
+/**
+ * Qué simulacro originó la sesión. Usa la columna `tipo`
+ * (migración 0005) y, si aún no existe, la infiere: el simulacro de
+ * matemáticas tiene 25 preguntas y el general 58.
+ */
+function tipoDe(s: Sesion): string {
+  if (s.tipo === "general" || s.tipo === "matematicas") return s.tipo;
+  const resps = s.respuestas ?? [];
+  if (
+    s.respondidas > 25 ||
+    resps.length > 25 ||
+    resps.some((r) => r.pregunta > 25)
+  ) {
+    return "general";
+  }
+  return "matematicas";
+}
+
 function formatearTiempo(seg: number) {
   const m = Math.floor(seg / 60);
   const s = Math.round(seg % 60);
@@ -52,10 +71,10 @@ function NoConfigurado() {
   return (
     <div className="glass mx-auto max-w-2xl p-6 text-center">
       <h2 className="font-display text-xl font-semibold">
-        Panel de simulacro en configuraciÃ³n
+        Panel de simulacro en configuración
       </h2>
       <p className="mt-3 text-sm leading-relaxed text-foreground/60">
-        Ejecuta la migraciÃ³n <code className="font-mono text-emerald">0003_simulacro.sql</code> en Supabase y
+        Ejecuta la migración <code className="font-mono text-emerald">0003_simulacro.sql</code> en Supabase y
         configura las variables de entorno para activar el seguimiento en vivo.
       </p>
     </div>
@@ -70,6 +89,7 @@ export function SimulacroAdmin() {
   const [sesiones, setSesiones] = useState<Sesion[]>([]);
   const [cargandoSesiones, setCargandoSesiones] = useState(true);
   const [ahora, setAhora] = useState(() => Date.now());
+  const [filtro, setFiltro] = useState("matematicas");
 
   const cargarSesiones = useCallback(async () => {
     const supabase = getSupabase();
@@ -128,7 +148,7 @@ export function SimulacroAdmin() {
     const arrancar = () => {
       if (!id) {
         id = setInterval(() => {
-          // No sondea cuando la pestaÃ±a no estÃ¡ visible (ahorra recursos)
+          // No sondea cuando la pestaña no está visible (ahorra recursos)
           if (!document.hidden) void cargarSesiones();
         }, 4000);
       }
@@ -158,13 +178,27 @@ const salir = async () => {
     setUser(null);
   };
 
+  const simulacroSel = simulacroPorId(filtro);
+  const totalPreguntas = simulacroSel.totalPreguntas;
+  const sesionesFiltradas = useMemo(
+    () => sesiones.filter((s) => tipoDe(s) === filtro),
+    [sesiones, filtro],
+  );
+  const conteoPorTipo = useMemo(() => {
+    const c: Record<string, number> = {};
+    for (const s of sesiones) {
+      const t = tipoDe(s);
+      c[t] = (c[t] ?? 0) + 1;
+    }
+    return c;
+  }, [sesiones]);
   const enCurso = useMemo(
-    () => sesiones.filter((s) => !s.terminado_en),
-    [sesiones],
+    () => sesionesFiltradas.filter((s) => !s.terminado_en),
+    [sesionesFiltradas],
   );
   const terminados = useMemo(
-    () => sesiones.filter((s) => s.terminado_en),
-    [sesiones],
+    () => sesionesFiltradas.filter((s) => s.terminado_en),
+    [sesionesFiltradas],
   );
   const promedioComponente = useMemo(
     () =>
@@ -207,7 +241,7 @@ const salir = async () => {
       .filter(([, v]) => v.ok > 0)
       .sort((a, b) => b[1].ok - a[1].ok)[0];
 
-    const datos = preguntasMatematicas.map((p) => {
+    const datos = simulacroSel.preguntas.map((p) => {
       const c = conteo[p.id] ?? { ok: 0, mal: 0 };
       return {
         nombre: `P${p.id}`,
@@ -218,10 +252,10 @@ const salir = async () => {
       };
     });
     return { masFallada: fallada, masAcertada: acertada, datosPreguntas: datos };
-  }, [terminados]);
+  }, [terminados, simulacroSel]);
 
   const enunciadoDe = (id: number) =>
-    preguntasMatematicas.find((p) => p.id === id)?.enunciado ?? "";
+    simulacroSel.preguntas.find((p) => p.id === id)?.enunciado ?? "";
 
   if (!supabaseConfigurado) return <NoConfigurado />;
 
@@ -283,6 +317,43 @@ if (!esAdmin) {
         </div>
       </div>
 
+      <div
+        className="glass flex flex-wrap items-center gap-2 p-4"
+        role="radiogroup"
+        aria-label="Simulacro a visualizar"
+      >
+        <span className="mr-1 text-xs font-semibold uppercase tracking-wider text-foreground/50">
+          Viendo datos de:
+        </span>
+        {SIMULACROS.map((s) => {
+          const activo = s.id === filtro;
+          return (
+            <button
+              key={s.id}
+              type="button"
+              role="radio"
+              aria-checked={activo}
+              onClick={() => setFiltro(s.id)}
+              className={cn(
+                "rounded-xl border px-4 py-2 text-sm font-semibold transition-colors",
+                activo
+                  ? "border-emerald bg-emerald/15 text-emerald"
+                  : "border-forest/10 text-foreground/60 hover:border-emerald/40 dark:border-white/10",
+              )}
+            >
+              {s.componente}
+              <span className="ml-1.5 font-mono text-xs font-normal opacity-70">
+                ({conteoPorTipo[s.id] ?? 0})
+              </span>
+            </button>
+          );
+        })}
+        <span className="ml-auto text-xs text-foreground/50">
+          {simulacroSel.titulo} · {totalPreguntas} preguntas · se actualiza en
+          vivo
+        </span>
+      </div>
+
       <div className="glass flex flex-wrap items-center justify-between gap-4 p-5">
         <div className="flex items-center gap-3">
           <span
@@ -300,7 +371,7 @@ if (!esAdmin) {
               {habilitado ? "Simulacro habilitado" : "Simulacro deshabilitado"}
             </p>
             <p className="text-xs text-foreground/50">
-              Controla el botÃ³n Â«Empezar simulacroÂ» de los estudiantes.
+              Controla el botón «Empezar simulacro» de los estudiantes.
             </p>
           </div>
         </div>
@@ -341,7 +412,9 @@ if (!esAdmin) {
                 return (
                   <tr key={s.id} className="border-b border-forest/5 last:border-0 dark:border-white/5">
                     <td className="py-2 pr-4 font-medium">{s.nombre}</td>
-                    <td className="py-2 pr-4 font-mono">{s.respondidas}/25</td>
+                    <td className="py-2 pr-4 font-mono">
+                      {s.respondidas}/{totalPreguntas}
+                    </td>
                     <td className="py-2 pr-4 font-mono tabular-nums">
                       {formatearTiempo(transcurrido)}
                     </td>
@@ -354,7 +427,7 @@ if (!esAdmin) {
               {enCurso.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="py-4 text-center text-foreground/50">
-                    Nadie estÃ¡ resolviendo el simulacro ahora.
+                    Nadie está resolviendo el simulacro ahora.
                   </td>
                 </tr>
               ) : null}
@@ -394,7 +467,9 @@ if (!esAdmin) {
                   <td className="py-2 pr-4 font-mono font-semibold text-emerald">
                     {(s.puntaje_componente ?? 0).toLocaleString("es-CO")}
                   </td>
-                  <td className="py-2 pr-4 font-mono">{s.correctas}/25</td>
+                  <td className="py-2 pr-4 font-mono">
+                    {s.correctas}/{totalPreguntas}
+                  </td>
                   <td className="py-2 pr-4 font-mono tabular-nums">
                     {formatearTiempo(s.tiempo_usado ?? 0)}
                   </td>
@@ -406,7 +481,7 @@ if (!esAdmin) {
               {terminados.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-4 text-center text-foreground/50">
-                    AÃºn no hay resultados.
+                    Aún no hay resultados.
                   </td>
                 </tr>
               ) : null}
@@ -417,32 +492,32 @@ if (!esAdmin) {
 
       {terminados.length > 0 ? (
         <section className="glass p-5">
-          <h3 className="font-display text-base font-semibold">EstadÃ­sticas</h3>
+          <h3 className="font-display text-base font-semibold">Estadísticas</h3>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {mejor ? (
               <StatCardMemo
                 icon={<Award className="h-4 w-4" />}
                 titulo="Mejor puntaje"
-                valor={`${mejor.nombre} Â· ${(mejor.puntaje_componente ?? 0).toLocaleString("es-CO")}`}
+                valor={`${mejor.nombre} · ${(mejor.puntaje_componente ?? 0).toLocaleString("es-CO")}`}
               />
             ) : null}
             {primero ? (
               <StatCardMemo
                 titulo="Primero en terminar"
-                valor={`${primero.nombre} Â· ${formatearTiempo(primero.tiempo_usado ?? 0)}`}
+                valor={`${primero.nombre} · ${formatearTiempo(primero.tiempo_usado ?? 0)}`}
               />
             ) : null}
             {masFallada ? (
               <StatCardMemo
-                titulo="Pregunta mÃ¡s fallada"
-                valor={`#${masFallada[0]} Â· ${masFallada[1].mal} fallos`}
+                titulo="Pregunta más fallada"
+                valor={`#${masFallada[0]} · ${masFallada[1].mal} fallos`}
                 texto={enunciadoDe(Number(masFallada[0]))}
               />
             ) : null}
             {masAcertada ? (
               <StatCardMemo
-                titulo="Pregunta mÃ¡s acertada"
-                valor={`#${masAcertada[0]} Â· ${masAcertada[1].ok} aciertos`}
+                titulo="Pregunta más acertada"
+                valor={`#${masAcertada[0]} · ${masAcertada[1].ok} aciertos`}
                 texto={enunciadoDe(Number(masAcertada[0]))}
               />
             ) : null}
@@ -454,7 +529,7 @@ if (!esAdmin) {
                 Aciertos por pregunta
               </h4>
               <p className="text-xs text-foreground/50">
-                La barra en esmeralda es la mÃ¡s acertada.
+                La barra en esmeralda es la más acertada.
               </p>
               <div className="mt-3 h-64">
                 <ResponsiveContainer width="100%" height="100%">
@@ -467,7 +542,7 @@ if (!esAdmin) {
                       formatter={(v, name) => [Number(v ?? 0), name === "aciertos" ? "Aciertos" : "Fallos"]}
                       labelFormatter={(l, p) => {
                         const d = p?.[0]?.payload;
-                        return d?.enunciado ? `${l} Â· ${d.enunciado}` : String(l);
+                        return d?.enunciado ? `${l} · ${d.enunciado}` : String(l);
                       }}
                     />
                     <Bar dataKey="aciertos" fill="#2ec27e" radius={[4, 4, 0, 0]} />
@@ -479,7 +554,7 @@ if (!esAdmin) {
             <div>
               <h4 className="text-sm font-semibold">Fallos por pregunta</h4>
               <p className="text-xs text-foreground/50">
-                La barra en coral es la mÃ¡s fallada.
+                La barra en coral es la más fallada.
               </p>
               <div className="mt-3 h-64">
                 <ResponsiveContainer width="100%" height="100%">
@@ -492,7 +567,7 @@ if (!esAdmin) {
                       formatter={(v, name) => [Number(v ?? 0), name === "fallos" ? "Fallos" : "Aciertos"]}
                       labelFormatter={(l, p) => {
                         const d = p?.[0]?.payload;
-                        return d?.enunciado ? `${l} Â· ${d.enunciado}` : String(l);
+                        return d?.enunciado ? `${l} · ${d.enunciado}` : String(l);
                       }}
                     />
                     <Bar dataKey="fallos" fill="#ff6b5b" radius={[4, 4, 0, 0]} />
@@ -505,7 +580,7 @@ if (!esAdmin) {
       ) : null}
 
       {cargandoSesiones ? (
-        <p className="text-center text-sm text-foreground/50">Cargandoâ€¦</p>
+        <p className="text-center text-sm text-foreground/50">Cargando…</p>
       ) : null}
     </div>
   );
