@@ -1,10 +1,11 @@
 ﻿"use client";
 
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import {
   Award,
   LogOut,
+  Pause,
   Play,
   RefreshCw,
   Square,
@@ -61,6 +62,13 @@ function tipoDe(s: Sesion): string {
   return "matematicas";
 }
 
+// Columnas livianas para el seguimiento en vivo: excluye `respuestas`
+// (el JSON más pesado), que solo se trae en la consulta de estadísticas.
+const COLUMNAS_LIVE =
+  "id,nombre,tipo,iniciado_en,ultima_actividad,respondidas,faltas,terminado_en,correctas,puntaje,puntaje_componente,tiempo_usado";
+const INTERVALO_LIVE_MS = 5000;
+const INTERVALO_STATS_MS = 30000;
+
 function formatearTiempo(seg: number) {
   const m = Math.floor(seg / 60);
   const s = Math.round(seg % 60);
@@ -74,7 +82,8 @@ function NoConfigurado() {
         Panel de simulacro en configuración
       </h2>
       <p className="mt-3 text-sm leading-relaxed text-foreground/60">
-        Ejecuta la migración <code className="font-mono text-emerald">0003_simulacro.sql</code> en Supabase y
+        Ejecuta las migraciones <code className="font-mono text-emerald">0003_simulacro.sql</code> y{" "}
+        <code className="font-mono text-emerald">0005_simulacro_tipo.sql</code> en Supabase y
         configura las variables de entorno para activar el seguimiento en vivo.
       </p>
     </div>
@@ -90,19 +99,112 @@ export function SimulacroAdmin() {
   const [cargandoSesiones, setCargandoSesiones] = useState(true);
   const [ahora, setAhora] = useState(() => Date.now());
   const [filtro, setFiltro] = useState("matematicas");
+  const [enVivo, setEnVivo] = useState(true);
+  // Si la migración 0005 aún no se aplicó (sin columna `tipo`), se usan
+  // consultas compatibles y se infiere el tipo por heurística.
+  const [conTipo, setConTipo] = useState(true);
+  const firmaRef = useRef("");
+  const liveEnCursoRef = useRef(false);
+  const statsEnCursoRef = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
 
-  const cargarSesiones = useCallback(async () => {
+  const columnas = useCallback(
+    (conRespuestas: boolean) => {
+      if (!conTipo) return "*";
+      return conRespuestas ? `${COLUMNAS_LIVE},respuestas` : COLUMNAS_LIVE;
+    },
+    [conTipo],
+  );
+
+  // Seguimiento ligero (sin el JSON de respuestas): cada 5 s.
+  // Omite el re-render si nada cambió y nunca solapa peticiones.
+  const cargarLive = useCallback(async () => {
     const supabase = getSupabase();
-    if (!supabase) return;
-    const { data: ses } = await supabase
-      .from("simulacro_sesiones")
-      .select("*")
-      .order("iniciado_en", { ascending: false })
-      .limit(500);
-    setSesiones((ses ?? []) as Sesion[]);
-    setCargandoSesiones(false);
-    setAhora(Date.now());
-  }, []);
+    if (!supabase || liveEnCursoRef.current) return;
+    liveEnCursoRef.current = true;
+    try {
+      const { data, error } = await supabase
+        .from("simulacro_sesiones")
+        .select(columnas(false))
+        .order("iniciado_en", { ascending: false })
+        .limit(500)
+        .abortSignal(abortRef.current?.signal ?? new AbortController().signal);
+      if (error) {
+        if (conTipo && /tipo/i.test(error.message ?? "")) setConTipo(false);
+        return;
+      }
+      // Las columnas se eligen en tiempo de ejecución; el tipado del
+      // cliente no puede inferirlas, así que se normaliza aquí.
+      const filas = ((data ?? []) as unknown) as Sesion[];
+      const firma = JSON.stringify(
+        filas.map((s) => [
+          s.id,
+          s.respondidas,
+          s.faltas,
+          s.terminado_en,
+          s.ultima_actividad,
+        ]),
+      );
+      setAhora(Date.now());
+      if (firma === firmaRef.current) return;
+      firmaRef.current = firma;
+      setSesiones((prev) => {
+        const prevPorId = new Map(prev.map((s) => [s.id, s]));
+        return filas.map((s) => {
+          const p = prevPorId.get(s.id);
+          // Conserva respuestas/tipo ya cargados por la consulta pesada.
+          if (p && (!s.respuestas || !s.tipo)) {
+            return {
+              ...s,
+              respuestas: s.respuestas ?? p.respuestas ?? null,
+              tipo: s.tipo ?? p.tipo ?? null,
+            };
+          }
+          return s;
+        });
+      });
+      setCargandoSesiones(false);
+    } catch {
+      // Petición abortada al desmontar: nada que hacer.
+    } finally {
+      liveEnCursoRef.current = false;
+    }
+  }, [columnas, conTipo]);
+
+  // Detalle pesado (con respuestas, solo terminados): cada 30 s.
+  // Alimenta las estadísticas sin castigar el seguimiento en vivo.
+  const cargarStats = useCallback(async () => {
+    const supabase = getSupabase();
+    if (!supabase || statsEnCursoRef.current) return;
+    statsEnCursoRef.current = true;
+    try {
+      const { data, error } = await supabase
+        .from("simulacro_sesiones")
+        .select(columnas(true))
+        .not("terminado_en", "is", null)
+        .order("iniciado_en", { ascending: false })
+        .limit(500)
+        .abortSignal(abortRef.current?.signal ?? new AbortController().signal);
+      if (error) {
+        if (conTipo && /tipo/i.test(error.message ?? "")) setConTipo(false);
+        return;
+      }
+      const porId = new Map(
+        (((data ?? []) as unknown) as Sesion[]).map((s) => [s.id, s]),
+      );
+      if (porId.size === 0) return;
+      setSesiones((prev) =>
+        prev.map((s) => {
+          const d = porId.get(s.id);
+          return d ? { ...s, respuestas: d.respuestas ?? s.respuestas } : s;
+        }),
+      );
+    } catch {
+      // Petición abortada al desmontar: nada que hacer.
+    } finally {
+      statsEnCursoRef.current = false;
+    }
+  }, [columnas, conTipo]);
 
   const cargarHabilitado = useCallback(async () => {
     const supabase = getSupabase();
@@ -141,32 +243,34 @@ export function SimulacroAdmin() {
 
   useEffect(() => {
     if (!esAdmin) return;
+    const controlador = new AbortController();
+    abortRef.current = controlador;
+    // Carga inicial al suscribirse al seguimiento en vivo.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void cargarSesiones();
+    void cargarLive();
+    void cargarStats();
     void cargarHabilitado();
-    let id: ReturnType<typeof setInterval> | null = null;
-    const arrancar = () => {
-      if (!id) {
-        id = setInterval(() => {
-          // No sondea cuando la pestaña no está visible (ahorra recursos)
-          if (!document.hidden) void cargarSesiones();
-        }, 4000);
-      }
+    // Al volver a la pestaña se retoma de inmediato (antes el sondeo
+    // quedaba detenido para siempre).
+    const alVisibilidad = () => {
+      if (!document.hidden && enVivo) void cargarLive();
     };
-    const pausar = () => {
-      if (id) {
-        clearInterval(id);
-        id = null;
-      }
-      if (!document.hidden) void cargarSesiones();
-    };
-    arrancar();
-    document.addEventListener("visibilitychange", pausar);
+    const timerLive = setInterval(() => {
+      // No sondea con la pestaña oculta ni en pausa (ahorra recursos).
+      if (!document.hidden && enVivo) void cargarLive();
+    }, INTERVALO_LIVE_MS);
+    const timerStats = setInterval(() => {
+      if (!document.hidden && enVivo) void cargarStats();
+    }, INTERVALO_STATS_MS);
+    document.addEventListener("visibilitychange", alVisibilidad);
     return () => {
-      if (id) clearInterval(id);
-      document.removeEventListener("visibilitychange", pausar);
+      controlador.abort();
+      abortRef.current = null;
+      clearInterval(timerLive);
+      clearInterval(timerStats);
+      document.removeEventListener("visibilitychange", alVisibilidad);
     };
-  }, [esAdmin, cargarSesiones, cargarHabilitado]);
+  }, [esAdmin, enVivo, cargarLive, cargarStats, cargarHabilitado]);
 
   const toggleHabilitado = async () => {
     const ok = await habilitarSimulacro(!habilitado);
@@ -302,9 +406,23 @@ if (!esAdmin) {
             variant="secondary"
             size="sm"
             icon={<RefreshCw className="h-4 w-4" />}
-            onClick={() => void cargarSesiones()}
+            onClick={() => {
+              void cargarLive();
+              void cargarStats();
+            }}
           >
             Actualizar
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={
+              enVivo ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />
+            }
+            onClick={() => setEnVivo((v) => !v)}
+            title={enVivo ? "Pausar seguimiento en vivo" : "Reanudar seguimiento en vivo"}
+          >
+            {enVivo ? "En vivo" : "Pausado"}
           </Button>
           <Button
             variant="secondary"
@@ -405,25 +523,14 @@ if (!esAdmin) {
               </tr>
             </thead>
             <tbody>
-              {enCurso.map((s) => {
-                const transcurrido = Math.floor(
-                  (ahora - new Date(s.iniciado_en).getTime()) / 1000,
-                );
-                return (
-                  <tr key={s.id} className="border-b border-forest/5 last:border-0 dark:border-white/5">
-                    <td className="py-2 pr-4 font-medium">{s.nombre}</td>
-                    <td className="py-2 pr-4 font-mono">
-                      {s.respondidas}/{totalPreguntas}
-                    </td>
-                    <td className="py-2 pr-4 font-mono tabular-nums">
-                      {formatearTiempo(transcurrido)}
-                    </td>
-                    <td className={cn("py-2 font-mono", s.faltas > 0 && "text-coral")}>
-                      {s.faltas}
-                    </td>
-                  </tr>
-                );
-              })}
+              {enCurso.map((s) => (
+                <FilaEnCursoMemo
+                  key={s.id}
+                  sesion={s}
+                  total={totalPreguntas}
+                  ahora={ahora}
+                />
+              ))}
               {enCurso.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="py-4 text-center text-foreground/50">
@@ -453,30 +560,7 @@ if (!esAdmin) {
             </thead>
             <tbody>
               {terminados.map((s) => (
-                <tr key={s.id} className="border-b border-forest/5 last:border-0 dark:border-white/5">
-                  <td className="py-2 pr-4 font-medium">
-                    <span className="flex items-center gap-1.5">
-                      {s.nombre}
-                      {s.faltas >= 3 ? (
-                        <span className="rounded-full border border-coral/30 bg-coral/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-coral">
-                          Revisar
-                        </span>
-                      ) : null}
-                    </span>
-                  </td>
-                  <td className="py-2 pr-4 font-mono font-semibold text-emerald">
-                    {(s.puntaje_componente ?? 0).toLocaleString("es-CO")}
-                  </td>
-                  <td className="py-2 pr-4 font-mono">
-                    {s.correctas}/{totalPreguntas}
-                  </td>
-                  <td className="py-2 pr-4 font-mono tabular-nums">
-                    {formatearTiempo(s.tiempo_usado ?? 0)}
-                  </td>
-                  <td className={cn("py-2 font-mono", s.faltas > 0 && "text-coral")}>
-                    {s.faltas}
-                  </td>
-                </tr>
+                <FilaTerminadaMemo key={s.id} sesion={s} total={totalPreguntas} />
               ))}
               {terminados.length === 0 ? (
                 <tr>
@@ -523,59 +607,7 @@ if (!esAdmin) {
             ) : null}
           </div>
 
-          <div className="mt-6 grid gap-6 lg:grid-cols-2">
-            <div>
-              <h4 className="text-sm font-semibold">
-                Aciertos por pregunta
-              </h4>
-              <p className="text-xs text-foreground/50">
-                La barra en esmeralda es la más acertada.
-              </p>
-              <div className="mt-3 h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={datosPreguntas} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-forest/10 dark:text-white/10" />
-                    <XAxis dataKey="nombre" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} className="text-foreground/50" interval={0} angle={-45} textAnchor="end" height={50} />
-                    <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} className="text-foreground/50" allowDecimals={false} />
-                    <Tooltip
-                      contentStyle={{ background: "#143a2a", border: "1px solid #2ec27e55", borderRadius: 12, color: "#fff9ef", fontSize: 12 }}
-                      formatter={(v, name) => [Number(v ?? 0), name === "aciertos" ? "Aciertos" : "Fallos"]}
-                      labelFormatter={(l, p) => {
-                        const d = p?.[0]?.payload;
-                        return d?.enunciado ? `${l} · ${d.enunciado}` : String(l);
-                      }}
-                    />
-                    <Bar dataKey="aciertos" fill="#2ec27e" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="text-sm font-semibold">Fallos por pregunta</h4>
-              <p className="text-xs text-foreground/50">
-                La barra en coral es la más fallada.
-              </p>
-              <div className="mt-3 h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={datosPreguntas} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-forest/10 dark:text-white/10" />
-                    <XAxis dataKey="nombre" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} className="text-foreground/50" interval={0} angle={-45} textAnchor="end" height={50} />
-                    <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} className="text-foreground/50" allowDecimals={false} />
-                    <Tooltip
-                      contentStyle={{ background: "#143a2a", border: "1px solid #ff6b5b55", borderRadius: 12, color: "#fff9ef", fontSize: 12 }}
-                      formatter={(v, name) => [Number(v ?? 0), name === "fallos" ? "Fallos" : "Aciertos"]}
-                      labelFormatter={(l, p) => {
-                        const d = p?.[0]?.payload;
-                        return d?.enunciado ? `${l} · ${d.enunciado}` : String(l);
-                      }}
-                    />
-                    <Bar dataKey="fallos" fill="#ff6b5b" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
+          <GraficasMemo datos={datosPreguntas} />
         </section>
       ) : null}
 
@@ -636,4 +668,186 @@ function StatCard({
 }
 
 const StatCardMemo = memo(StatCard);
+
+function FilaEnCurso({
+  sesion,
+  total,
+  ahora,
+}: {
+  sesion: Sesion;
+  total: number;
+  ahora: number;
+}) {
+  const transcurrido = Math.max(
+    0,
+    Math.floor((ahora - new Date(sesion.iniciado_en).getTime()) / 1000),
+  );
+  return (
+    <tr className="border-b border-forest/5 last:border-0 dark:border-white/5">
+      <td className="py-2 pr-4 font-medium">{sesion.nombre}</td>
+      <td className="py-2 pr-4 font-mono">
+        {sesion.respondidas}/{total}
+      </td>
+      <td className="py-2 pr-4 font-mono tabular-nums">
+        {formatearTiempo(transcurrido)}
+      </td>
+      <td className={cn("py-2 font-mono", sesion.faltas > 0 && "text-coral")}>
+        {sesion.faltas}
+      </td>
+    </tr>
+  );
+}
+
+const FilaEnCursoMemo = memo(FilaEnCurso);
+
+function FilaTerminada({
+  sesion,
+  total,
+}: {
+  sesion: Sesion;
+  total: number;
+}) {
+  return (
+    <tr className="border-b border-forest/5 last:border-0 dark:border-white/5">
+      <td className="py-2 pr-4 font-medium">
+        <span className="flex items-center gap-1.5">
+          {sesion.nombre}
+          {sesion.faltas >= 3 ? (
+            <span className="rounded-full border border-coral/30 bg-coral/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-coral">
+              Revisar
+            </span>
+          ) : null}
+        </span>
+      </td>
+      <td className="py-2 pr-4 font-mono font-semibold text-emerald">
+        {(sesion.puntaje_componente ?? 0).toLocaleString("es-CO")}
+      </td>
+      <td className="py-2 pr-4 font-mono">
+        {sesion.correctas}/{total}
+      </td>
+      <td className="py-2 pr-4 font-mono tabular-nums">
+        {formatearTiempo(sesion.tiempo_usado ?? 0)}
+      </td>
+      <td className={cn("py-2 font-mono", sesion.faltas > 0 && "text-coral")}>
+        {sesion.faltas}
+      </td>
+    </tr>
+  );
+}
+
+const FilaTerminadaMemo = memo(FilaTerminada);
+
+type DatoPregunta = {
+  nombre: string;
+  aciertos: number;
+  fallos: number;
+  total: number;
+  enunciado: string;
+};
+
+function GraficaBarras({
+  datos,
+  titulo,
+  descripcion,
+  dataKey,
+  color,
+  borde,
+  etiqueta,
+}: {
+  datos: DatoPregunta[];
+  titulo: string;
+  descripcion: string;
+  dataKey: "aciertos" | "fallos";
+  color: string;
+  borde: string;
+  etiqueta: string;
+}) {
+  return (
+    <div>
+      <h4 className="text-sm font-semibold">{titulo}</h4>
+      <p className="text-xs text-foreground/50">{descripcion}</p>
+      <div className="mt-3 h-64">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={datos}
+            margin={{ top: 4, right: 4, bottom: 0, left: -24 }}
+          >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="currentColor"
+              className="text-forest/10 dark:text-white/10"
+            />
+            <XAxis
+              dataKey="nombre"
+              tick={{ fontSize: 10 }}
+              tickLine={false}
+              axisLine={false}
+              className="text-foreground/50"
+              interval="preserveStartEnd"
+              angle={-45}
+              textAnchor="end"
+              height={50}
+            />
+            <YAxis
+              tick={{ fontSize: 10 }}
+              tickLine={false}
+              axisLine={false}
+              className="text-foreground/50"
+              allowDecimals={false}
+            />
+            <Tooltip
+              contentStyle={{
+                background: "#143a2a",
+                border: `1px solid ${borde}`,
+                borderRadius: 12,
+                color: "#fff9ef",
+                fontSize: 12,
+              }}
+              formatter={(v) => [Number(v ?? 0), etiqueta]}
+              labelFormatter={(l, p) => {
+                const d = p?.[0]?.payload as DatoPregunta | undefined;
+                return d?.enunciado ? `${l} · ${d.enunciado}` : String(l);
+              }}
+            />
+            {/* Sin animación: evita acumular frames en cada actualización
+                en vivo, que era la principal fuga de memoria/CPU. */}
+            <Bar
+              dataKey={dataKey}
+              fill={color}
+              radius={[4, 4, 0, 0]}
+              isAnimationActive={false}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function Graficas({ datos }: { datos: DatoPregunta[] }) {
+  return (
+    <div className="mt-6 grid gap-6 lg:grid-cols-2">
+      <GraficaBarras
+        datos={datos}
+        titulo="Aciertos por pregunta"
+        descripcion="La barra en esmeralda es la más acertada."
+        dataKey="aciertos"
+        color="#2ec27e"
+        borde="#2ec27e55"
+        etiqueta="Aciertos"
+      />
+      <GraficaBarras
+        datos={datos}
+        titulo="Fallos por pregunta"
+        descripcion="La barra en coral es la más fallada."
+        dataKey="fallos"
+        color="#ff6b5b"
+        borde="#ff6b5b55"
+        etiqueta="Fallos"
+      />
+    </div>
+  );
+}
+
+const GraficasMemo = memo(Graficas);
 
